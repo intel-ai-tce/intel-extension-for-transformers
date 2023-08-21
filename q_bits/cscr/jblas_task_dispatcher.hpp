@@ -1,3 +1,5 @@
+#pragma once
+
 #include <torch/torch.h>
 #include "jblas/jit_blas_weight_compression.h"
 
@@ -38,16 +40,32 @@ struct qbits_runtime_ctx {
   int64_t blocksize, m, n, k, lda, ldo;
 };
 
+template <class KERNEL>
+void jblas_quantize(jblas_config_param* p, qbits_runtime_ctx* ctx) {
+  using PrologueB = typename KERNEL::WeightType;
+  PrologueB compress_kernel;
+}
+
 template <QBITS_TASK TASK, class KERNEL>
-void execute_task(jblas_config_param* p, qbits_runtime_ctx* ctx) {}
+void execute_task(jblas_config_param* p, qbits_runtime_ctx* ctx) {
+  switch (TASK) {
+    case QBITS_QUANTIZE:
+      return jblas_quantize<KERNEL>(p, ctx);
+      // case QBITS_DEQUANTIZE:
+      //   return jblas_dequantize<KERNEL>(p, ctx);
+      // case QBITS_LINEAR:
+      //   return jblas_gemm<KERNEL>(p, ctx);
+  }
+}
 
 template <QBITS_TASK TASK, INTERFACE_TEMPLATE, LAUNCHER_TEMPLATE, class Gemmcore, template <class _T> class Parallel,
           JBLAS_ISA ISA, template <class _T, JBLAS_ISA> class PrologueB, template <class _T, JBLAS_ISA> class PrologueA>
 void parse_store(jblas_config_param* p, qbits_runtime_ctx* ctx) {
   if (p->dst_dt == QBITS_FP32) {
-    return execute_task<
-        TASK, Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, jblas::epilogue::gemm::AccumulatorWriteBackFp32>,
-                        Parallel>>(p, ctx);
+    using namespace jblas::epilogue::gemm;
+    return execute_task<TASK,
+                        Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, AccumulatorWriteBackFp32>, Parallel>>(
+        p, ctx);
   }
   TORCH_CHECK(false, "unsupported dst data type.");
 }
@@ -55,9 +73,10 @@ void parse_store(jblas_config_param* p, qbits_runtime_ctx* ctx) {
 template <QBITS_TASK TASK, INTERFACE_TEMPLATE, LAUNCHER_TEMPLATE, class Gemmcore, template <class _T> class Parallel,
           JBLAS_ISA ISA, template <class _T, JBLAS_ISA> class PrologueB>
 void parse_activation(jblas_config_param* p, qbits_runtime_ctx* ctx) {
+  using namespace jblas::prologue::gemm;
   if (p->compute_type == "int8" && p->src_dt == QBITS_FP32 && check_amx()) {
-    return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB,
-                       jblas::prologue::gemm::ActivationF32S8KBlockQuantize>(p, ctx);
+    return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationF32S8KBlockQuantize>(
+        p, ctx);
   }
   TORCH_CHECK(false, "unsupported src data type.");
 }
@@ -65,9 +84,9 @@ void parse_activation(jblas_config_param* p, qbits_runtime_ctx* ctx) {
 template <QBITS_TASK TASK, INTERFACE_TEMPLATE, LAUNCHER_TEMPLATE, class Gemmcore, template <class _T> class Parallel,
           JBLAS_ISA ISA>
 void parse_weight(jblas_config_param* p, qbits_runtime_ctx* ctx) {
+  using namespace jblas::prologue::weight_comp::gemm_kblcok;
   if (p->weight_type == "s8_scalef32") {
-    return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA,
-                            jblas::prologue::weight_comp::gemm_kblcok::WeightS8ScaleFp32>(p, ctx);
+    return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightS8ScaleFp32>(p, ctx);
   }
   if (p->weight_type == "s4clip_scalef32") {
   }
