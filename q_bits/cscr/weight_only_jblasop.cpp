@@ -1,6 +1,6 @@
 #include <torch/script.h>
 #include <torch/torch.h>
-#include "jblas_task_dispatcher.hpp"
+#include "dispatcher/jblas_task_dispatcher.hpp"
 
 template <QBITS_DT SRC_DT, QBITS_DT DST_DT>
 static void inline init_jblas_config_param(jblas_config_param* p, const std::string& compute_type,
@@ -17,7 +17,7 @@ static torch::Tensor jblas_quantize(const torch::Tensor& fp32_weight, bool trans
   jblas_config_param p;
   init_jblas_config_param<QBITS_FP32, QBITS_FP32>(&p, compute_type, weight_type);
   qbits_runtime_ctx ctx{nullptr, const_cast<torch::Tensor*>(&fp32_weight), nullptr, &output, transpose, block_size};
-  task_dispatcher<QBITS_QUANTIZE>(&p, &ctx);
+  task_dispatcher(&p, &ctx, "quant");
   return output;
 }
 
