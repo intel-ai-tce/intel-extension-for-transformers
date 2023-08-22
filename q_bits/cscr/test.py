@@ -22,35 +22,51 @@ def capture_args(f):
 @capture_args
 def test_fp32in_fp32_out(m, n, k, blocksize, compute_type, weight_type, transpose, add_bias, dump_tensor_info=False):
     activation = torch.rand(m, k, dtype=torch.float)
-    raw_wei = torch.rand(k, n, dtype=torch.float)
+    wei_row=k
+    wei_col=n
+    if transpose:
+        wei_row,wei_col=wei_col,wei_row; 
+    raw_wei = torch.rand(wei_row, wei_col, dtype=torch.float)
     if dump_tensor_info:
         print(raw_wei)
     compress_wei = torch.ops.weight_only_jblasop.qbits_quantize(
         raw_wei, transpose, blocksize, compute_type, weight_type)
-    revert_wei = torch.zeros(k, n, dtype=torch.float)
+    revert_wei = torch.zeros(wei_row, wei_col, dtype=torch.float)
     torch.ops.weight_only_jblasop.qbits_dequantize(
         compress_wei, revert_wei, transpose, compute_type, weight_type)
-    bias = torch.rand(n, dtype=torch.float)
-    bias *= 10
+    bias = torch.rand(n, dtype=torch.float)*10
     if dump_tensor_info:
         print(revert_wei)
     tar_dst = torch.zeros(m, n, dtype=torch.float)
+    if transpose:
+        revert_wei=torch.transpose(revert_wei,0,1)
     ref_dst = torch.matmul(activation, revert_wei)
-    torch.ops.weight_only_jblasop.qbits_f32in_f32out_linear_with_bias(
-        activation, compress_wei, bias, tar_dst, k, n, compute_type, weight_type)
+    if add_bias:
+        torch.ops.weight_only_jblasop.qbits_f32in_f32out_linear_with_bias(
+            activation, compress_wei, bias, tar_dst, k, n, compute_type, weight_type)
+    else:
+        torch.ops.weight_only_jblasop.qbits_f32in_f32out_linear_without_bias(
+            activation, compress_wei, tar_dst, n, k, n, compute_type, weight_type)
+    if add_bias:
+        ref_dst+=bias
     if dump_tensor_info:
         print(tar_dst)
-        print(ref_dst+bias)
+        print(ref_dst)
+    if torch.allclose(tar_dst,ref_dst,rtol=0.03):
+        print("ok")
+    else:
+        print("fail")
 
 
-test_fp32in_fp32_out(64, 64, 64, 32, "fp32", "s8_scalef32", False, True, True)
-test_fp32in_fp32_out(256, 256, 256, 64, "fp32",
-                     "s4clip_scalef32", False, True, True)
-test_fp32in_fp32_out(256, 256, 256, 64, "bf16",
-                     "s4clip_scalef32", False, True, True)
-test_fp32in_fp32_out(256, 256, 256, 64, "int8",
-                     "s4clip_scalef32", False, True, True)
-test_fp32in_fp32_out(256, 256, 256, 64, "fp32",
-                     "nf4_scnf4", False, True, True)
-test_fp32in_fp32_out(256, 256, 256, 64, "bf16",
-                     "nf4_scalef32", False, True, True)
+test_fp32in_fp32_out(64, 64, 64, 32, "fp32", "s8_scalef32",True, False)
+test_fp32in_fp32_out(255, 1023, 511, 64, "fp32",
+                     "s4clip_scalef32",True, False)
+test_fp32in_fp32_out(255, 1023, 511, 64, "bf16",
+                     "s4clip_scalef32",True, False)
+test_fp32in_fp32_out(255, 1023, 511, 64, "int8",
+                     "s4clip_scalef32",True, False)
+test_fp32in_fp32_out(255, 1023, 511, 64, "fp32",
+                     "nf4_scalef32",True, False)
+                     
+test_fp32in_fp32_out(255, 1023, 511, 64, "bf16",
+                     "nf4_scalef32",True, False)

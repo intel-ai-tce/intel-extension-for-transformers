@@ -523,6 +523,35 @@ inline int8_t f4_quantize(float x) {
       break;
   }
 }
+
+template <JBLAS_F4_TYPE F4_T>
+inline JBLAS_CODE decompress_kblock_f4_fp_packrow(utils::f4x2* srcptr, float* dstptr, int row, int col, int ld_src,
+                                                  int ld_dst, float* scales, int k_offset, int kblock, int NPad,
+                                                  int packrow) {
+  for (int i = 0; i < row; i += packrow) {
+    if (packrow == 1) {
+      int kpos = (k_offset + i) / kblock;
+      auto sptr = scales + kpos * NPad;
+      for (int j = 0; j < col; j += 2) {
+        auto tmp = srcptr[i * ld_src / 2 + j / 2];
+        dstptr[i * ld_dst + j + 0] = f4_dequantize<F4_T>(tmp.x, sptr[j + 0]);
+        dstptr[i * ld_dst + j + 1] = f4_dequantize<F4_T>(tmp.y, sptr[j + 1]);
+      }
+    } else {
+      for (int j = 0; j < col; j++) {
+        for (int k = 0; k < packrow; k += 2) {
+          int kpos = (k_offset + i + k) / kblock;
+          auto sptr = scales + kpos * NPad + j;
+          auto tmp = srcptr[(i * ld_src + j * packrow + k) / 2];
+          dstptr[i * ld_dst + j * packrow + k + 0] = f4_dequantize<F4_T>(tmp.x, sptr[0]);
+          dstptr[i * ld_dst + j * packrow + k + 1] = f4_dequantize<F4_T>(tmp.y, sptr[0]);
+        }
+      }
+    }
+  }
+  return JblasSuccess;
+}
+
 template <JBLAS_F4_TYPE F4_T>
 inline JBLAS_CODE decompress_kblock_f4_fp(utils::f4x2* srcptr, float* dstptr, int row, int col, int ld_src, int ld_dst,
                                           float* scales, int k_offset, int kblock, int NPad) {

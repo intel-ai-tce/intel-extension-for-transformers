@@ -57,12 +57,12 @@ void qbits_dequantize(qbits_config_param* p, qbits_runtime_ctx* ctx) {
 template <class KERNEL>
 void qbits_gemm(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   static KERNEL gemm_kernel;
-  float alpha = 1.f, beta = 0.f;  // may be support dynamic alpha/beta in the future.
   auto deserial_wei = jblas::prologue::weight_comp::gemm_kblcok::PackedWeightParser::deserialBuffer(
       ctx->weight->data_ptr<int8_t>(), false);
   if (p->src_dt == QBITS_FP32 && p->dst_dt == QBITS_FP32) {
     gemm_kernel.compute({ctx->m, ctx->n, ctx->k, ctx->activation->data_ptr<float>(), ctx->lda, deserial_wei,
-                         ctx->output->data_ptr<float>(), ctx->bias->data_ptr<float>(), ctx->ldo, 0, alpha, beta, NULL});
+                         ctx->output->data_ptr<float>(), ctx->bias->data_ptr<float>(), ctx->ldo, 0, ctx->alpha,
+                         ctx->beta, NULL});
     return;
   }
   TORCH_CHECK(false, "unsupported src & dst data_type combination.")
@@ -141,7 +141,7 @@ void parse_weight(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     if constexpr (ISA != JblasAMX_INT8 && ISA != JblasAVX512_VNNI)
       return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightNf4ScaleFp32>(p, ctx);
   }
-  TORCH_CHECK(false, "unsupported jblas_config, weight_type==" + p->weight_type + "weight_type==" + p->weight_type);
+  TORCH_CHECK(false, "unsupported jblas_config, weight_type==" + p->weight_type + " weight_type==" + p->weight_type);
 }
 
 template <QBITS_TASK TASK>
@@ -179,7 +179,7 @@ void parse_gemm_core(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     }
     TORCH_CHECK(false, "device ISA must support AMX-BF16 when compute_type==bf16");
   }
-  TORCH_CHECK(false, "unsupported jblas_config, compute_type==" + p->compute_type + "weight_type==" + p->weight_type);
+  TORCH_CHECK(false, "unsupported jblas_config, compute_type==" + p->compute_type + " weight_type==" + p->weight_type);
 }
 
 void task_dispatcher(qbits_config_param* p, qbits_runtime_ctx* ctx, QBITS_TASK task) {
