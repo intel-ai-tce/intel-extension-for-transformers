@@ -107,6 +107,11 @@ void parse_activation(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     if constexpr (ISA == JblasAVX512F)
       return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationBase>(p, ctx);
   }
+  if (p->compute_type == "bf16") {
+    if constexpr (ISA == JblasAMX_BF16)
+      return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationConverterFp32>(p,
+                                                                                                                 ctx);
+  }
   TORCH_CHECK(false, "unsupported src data type.");
 }
 
@@ -115,7 +120,8 @@ template <QBITS_TASK TASK, INTERFACE_TEMPLATE, LAUNCHER_TEMPLATE, class Gemmcore
 void parse_weight(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   using namespace jblas::prologue::weight_comp::gemm_kblcok;
   if (p->weight_type == "s8_scalef32") {
-    return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightS8ScaleFp32>(p, ctx);
+    if constexpr (ISA != JblasAMX_BF16)
+      return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightS8ScaleFp32>(p, ctx);
   }
   if (p->weight_type == "s4clip_scalef32") {
     return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightS4ClipScaleFp32>(p, ctx);
@@ -153,7 +159,7 @@ void parse_gemm_core(qbits_config_param* p, qbits_runtime_ctx* ctx) {
                           jblas::gemm::kblock::GemmCore_Row_NN_3x48_AVX512_VNNI_KBLOCK,
                           jblas::utils::parallel::Parallel2DGemmKBlockFixed, JblasAVX512_VNNI>(p, ctx);
     }
-    TORCH_CHECK(false, "device ISA muster lagger than VNNI when compute_type==int8");
+    TORCH_CHECK(false, "device ISA must lagger than VNNI when compute_type==int8");
   }
   if (p->compute_type == "fp32") {
     if (check_avx512f()) {
@@ -162,9 +168,16 @@ void parse_gemm_core(qbits_config_param* p, qbits_runtime_ctx* ctx) {
                           jblas::gemm::GemmCore_Row_NN_8x48_AVX512F, jblas::utils::parallel::Parallel2DGemm,
                           JblasAVX512F>(p, ctx);
     }
-    TORCH_CHECK(false, "device ISA muster lagger than AVX512F when compute_type==fp32");
+    TORCH_CHECK(false, "device ISA must lagger than AVX512F when compute_type==fp32");
   }
   if (p->compute_type == "bf16") {
+    if (check_amx()) {
+      return parse_weight<TASK, jblas::wrapper::gemm_pack_weight::GemmInterfacePackWeight,
+                          jblas::wrapper::gemm_pack_weight::GemmLauncherPackWeight,
+                          jblas::gemm::GemmCore_Row_NN_16x64_AMX_BF16, jblas::utils::parallel::Parallel2DGemm,
+                          JblasAMX_BF16>(p, ctx);
+    }
+    TORCH_CHECK(false, "device ISA must support AMX-BF16 when compute_type==bf16");
   }
   TORCH_CHECK(false, "unsupported jblas_config, compute_type==" + p->compute_type + "weight_type==" + p->weight_type);
 }
