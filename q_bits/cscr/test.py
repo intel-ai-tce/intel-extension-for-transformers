@@ -42,5 +42,5 @@ def test_fp32in_fp32_out(m, n, k, blocksize, compute_type, weight_type, transpos
         print(ref_dst)
 
 
-test_fp32in_fp32_out(64, 64, 64, 32, "int8", "s8_scalef32", False, True, True)
+test_fp32in_fp32_out(256, 256, 256, 64, "int8", "s4clip_scalef32", False, True, True)
 

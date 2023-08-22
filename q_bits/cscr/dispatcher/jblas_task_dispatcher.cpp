@@ -8,6 +8,12 @@
             template <class _T, JBLAS_ISA> class _PrologueB_T, template <JBLAS_ISA> class _Epilogue_T> \
   class Launcher
 
+class env_initer {
+ public:
+  env_initer() { jblas::utils::request_perm_xtile_data(); }
+};
+static env_initer initer;
+
 inline bool check_amx() { return jblas::utils::parallel::CpuDevice::getInstance()->AMX_BF16(); }
 inline bool check_vnni() { return jblas::utils::parallel::CpuDevice::getInstance()->AVX_VNNI(); }
 inline bool check_avx512f() { return jblas::utils::parallel::CpuDevice::getInstance()->AVX512F(); }
@@ -57,6 +63,7 @@ void qbits_gemm(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   if (p->src_dt == QBITS_FP32 && p->dst_dt == QBITS_FP32) {
     gemm_kernel.compute({ctx->m, ctx->n, ctx->k, ctx->activation->data_ptr<float>(), ctx->lda, deserial_wei,
                          ctx->output->data_ptr<float>(), ctx->bias->data_ptr<float>(), ctx->ldo, 0, alpha, beta, NULL});
+    return;
   }
   TORCH_CHECK(false, "unsupported src & dst data_type combination.")
 }
