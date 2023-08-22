@@ -12,24 +12,24 @@ inline bool check_amx() { return jblas::utils::parallel::CpuDevice::getInstance(
 inline bool check_vnni() { return jblas::utils::parallel::CpuDevice::getInstance()->AVX_VNNI(); }
 inline bool check_avx512f() { return jblas::utils::parallel::CpuDevice::getInstance()->AVX512F(); }
 
-inline void set_nk(qbits_runtime_ctx* ctx) {
-  ctx->n = ctx->transpose ? ctx->weight->sizes()[0] : ctx->weight->sizes()[1];
-  ctx->k = ctx->transpose ? ctx->weight->sizes()[1] : ctx->weight->sizes()[0];
+inline void set_nk(qbits_runtime_ctx* ctx, torch::Tensor* tensor) {
+  ctx->n = ctx->transpose ? tensor->sizes()[0] : tensor->sizes()[1];
+  ctx->k = ctx->transpose ? tensor->sizes()[1] : tensor->sizes()[0];
 }
 
 template <class KERNEL>
 void qbits_quantize(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   using PrologueB = typename KERNEL::WeightType;
   PrologueB compress_kernel;
-  set_nk(ctx);
+  set_nk(ctx, ctx->weight);
+
   auto ptr = (typename PrologueB::StorageWeight*)compress_kernel.createStorage(ctx->n, ctx->k, ctx->blocksize);
   if (ctx->transpose)
-    compress_kernel.unpackTransposeWeight(ctx->n, ctx->k, ptr, ctx->output->data_ptr<float>(), ctx->k);
+    compress_kernel.packTransposeWeight(ctx->n, ctx->k, ctx->weight->data_ptr<float>(), ctx->k, ptr);
   else
-    compress_kernel.unpackWeight(ctx->n, ctx->k, ptr, ctx->output->data_ptr<float>(), ctx->k);
+    compress_kernel.packWeight(ctx->n, ctx->k, ctx->weight->data_ptr<float>(), ctx->k, ptr);
   auto size = ptr->getSerializedSize();
-  ctx->output->resize_(size);
-  ctx->output->to(torch::kInt8);
+  *(ctx->output) = torch::zeros(size, torch::kInt8);
   ptr->serializeToBuffer(ctx->output->data_ptr<int8_t>());
 }
 
@@ -37,15 +37,15 @@ template <class KERNEL>
 void qbits_dequantize(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   using PrologueB = typename KERNEL::WeightType;
   PrologueB decompress_kernel;
-  set_nk(ctx);
+  set_nk(ctx, ctx->output);
   auto deserial_wei = jblas::prologue::weight_comp::gemm_kblcok::PackedWeightParser::deserialBuffer(
-      ctx->weight->data_ptr<float>(), false);
+      ctx->weight->data_ptr<int8_t>(), false);
   auto parse_wei = dynamic_cast<typename PrologueB::StorageWeight*>(deserial_wei);
   TORCH_CHECK(parse_wei != nullptr, "unresolved compressed weight.");
   if (ctx->transpose)
-    decompress_kernel.packTransposeWeight(ctx->n, ctx->k, ctx->weight->data_ptr<float>(), ctx->k, parse_wei);
+    decompress_kernel.unpackTransposeWeight(ctx->n, ctx->k, parse_wei, ctx->output->data_ptr<float>(), ctx->k);
   else
-    decompress_kernel.packWeight(ctx->n, ctx->k, ctx->weight->data_ptr<float>(), ctx->k, parse_wei);
+    decompress_kernel.unpackWeight(ctx->n, ctx->k, parse_wei, ctx->output->data_ptr<float>(), ctx->k);
 }
 
 template <QBITS_TASK TASK, class KERNEL>
