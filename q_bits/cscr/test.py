@@ -31,6 +31,7 @@ def test_fp32in_fp32_out(m, n, k, blocksize, compute_type, weight_type, transpos
     torch.ops.weight_only_jblasop.qbits_dequantize(
         compress_wei, revert_wei, transpose, compute_type, weight_type)
     bias = torch.rand(n, dtype=torch.float)
+    bias *= 10
     if dump_tensor_info:
         print(revert_wei)
     tar_dst = torch.zeros(m, n, dtype=torch.float)
@@ -39,8 +40,8 @@ def test_fp32in_fp32_out(m, n, k, blocksize, compute_type, weight_type, transpos
         activation, compress_wei, bias, tar_dst, k, n, compute_type, weight_type)
     if dump_tensor_info:
         print(tar_dst)
-        print(ref_dst)
+        print(ref_dst+bias)
 
 
-test_fp32in_fp32_out(256, 256, 256, 64, "int8", "s4clip_scalef32", False, True, True)
-
+test_fp32in_fp32_out(256, 256, 256, 64, "int8",
+                     "s4clip_scalef32", False, True, True)
