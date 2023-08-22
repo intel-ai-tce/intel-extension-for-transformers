@@ -33,7 +33,18 @@ static void qbits_dequantize(const torch::Tensor& compressed_weight, torch::Tens
 static void qbits_f32in_f32out_linear_with_bias(const torch::Tensor& activation, const torch::Tensor& weight,
                                                 const torch::Tensor& bias, torch::Tensor& output, int64_t lda,
                                                 int64_t ldo, const std::string& compute_type,
-                                                const std::string& weight_type) {}
+                                                const std::string& weight_type) {
+  qbits_config_param p;
+  init_qbits_config_param<QBITS_FP32, QBITS_FP32>(&p, compute_type, weight_type);
+  qbits_runtime_ctx ctx{const_cast<torch::Tensor*>(&activation), const_cast<torch::Tensor*>(&weight),
+                        const_cast<torch::Tensor*>(&bias), &output};
+  ctx.lda = lda;
+  ctx.ldo = ldo;
+  ctx.m = activation.sizes()[0];
+  ctx.k = activation.sizes()[1];
+  ctx.n = bias.sizes()[0];
+  task_dispatcher(&p, &ctx, QBITS_LINEAR);
+}
 
 static void qbits_f32in_f32out_linear_without_bias(const torch::Tensor& activation, const torch::Tensor& weight,
                                                    torch::Tensor& output, int64_t n, int64_t lda, int64_t ldo,

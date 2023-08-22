@@ -20,7 +20,7 @@ inline void set_nk(qbits_runtime_ctx* ctx, torch::Tensor* tensor) {
 template <class KERNEL>
 void qbits_quantize(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   using PrologueB = typename KERNEL::WeightType;
-  PrologueB compress_kernel;
+  static PrologueB compress_kernel;
   set_nk(ctx, ctx->weight);
 
   auto ptr = (typename PrologueB::StorageWeight*)compress_kernel.createStorage(ctx->n, ctx->k, ctx->blocksize);
@@ -36,7 +36,7 @@ void qbits_quantize(qbits_config_param* p, qbits_runtime_ctx* ctx) {
 template <class KERNEL>
 void qbits_dequantize(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   using PrologueB = typename KERNEL::WeightType;
-  PrologueB decompress_kernel;
+  static PrologueB decompress_kernel;
   set_nk(ctx, ctx->output);
   auto deserial_wei = jblas::prologue::weight_comp::gemm_kblcok::PackedWeightParser::deserialBuffer(
       ctx->weight->data_ptr<int8_t>(), false);
@@ -48,6 +48,19 @@ void qbits_dequantize(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     decompress_kernel.unpackWeight(ctx->n, ctx->k, parse_wei, ctx->output->data_ptr<float>(), ctx->k);
 }
 
+template <class KERNEL>
+void qbits_gemm(qbits_config_param* p, qbits_runtime_ctx* ctx) {
+  static KERNEL gemm_kernel;
+  float alpha = 1.f, beta = 0.f;  // may be support dynamic alpha/beta in the future.
+  auto deserial_wei = jblas::prologue::weight_comp::gemm_kblcok::PackedWeightParser::deserialBuffer(
+      ctx->weight->data_ptr<int8_t>(), false);
+  if (p->src_dt == QBITS_FP32 && p->dst_dt == QBITS_FP32) {
+    gemm_kernel.compute({ctx->m, ctx->n, ctx->k, ctx->activation->data_ptr<float>(), ctx->lda, deserial_wei,
+                         ctx->output->data_ptr<float>(), ctx->bias->data_ptr<float>(), ctx->ldo, 0, alpha, beta, NULL});
+  }
+  TORCH_CHECK(false, "unsupported src & dst data_type combination.")
+}
+
 template <QBITS_TASK TASK, class KERNEL>
 void execute_task(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   switch (TASK) {
@@ -55,8 +68,8 @@ void execute_task(qbits_config_param* p, qbits_runtime_ctx* ctx) {
       return qbits_quantize<KERNEL>(p, ctx);
     case QBITS_DEQUANTIZE:
       return qbits_dequantize<KERNEL>(p, ctx);
-      // case QBITS_LINEAR:
-      //   return jblas_gemm<KERNEL>(p, ctx);
+    case QBITS_LINEAR:
+      return qbits_gemm<KERNEL>(p, ctx);
   }
 }
 
@@ -65,8 +78,7 @@ template <QBITS_TASK TASK, INTERFACE_TEMPLATE, LAUNCHER_TEMPLATE, class Gemmcore
 void parse_store(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   if (p->dst_dt == QBITS_FP32) {
     using namespace jblas::epilogue::gemm;
-    return execute_task<TASK,
-                        Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, AccumulatorWriteBackFp32>, Parallel>>(
+    return execute_task<TASK, Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, AlphaBetaProcessFp32>, Parallel>>(
         p, ctx);
   }
   TORCH_CHECK(false, "unsupported dst data type.");
@@ -76,9 +88,13 @@ template <QBITS_TASK TASK, INTERFACE_TEMPLATE, LAUNCHER_TEMPLATE, class Gemmcore
           JBLAS_ISA ISA, template <class _T, JBLAS_ISA> class PrologueB>
 void parse_activation(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   using namespace jblas::prologue::gemm;
-  if (p->compute_type == "int8" && p->src_dt == QBITS_FP32 && check_amx()) {
-    return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationF32S8KBlockQuantize>(
-        p, ctx);
+  if (p->compute_type == "int8" && p->src_dt == QBITS_FP32) {
+    if constexpr (ISA == JblasAMX_INT8)
+      return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationF32S8KBlockQuantize>(
+          p, ctx);
+    else
+      return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationF32U8KBlockQuantize>(
+          p, ctx);
   }
   TORCH_CHECK(false, "unsupported src data type.");
 }
@@ -91,6 +107,7 @@ void parse_weight(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightS8ScaleFp32>(p, ctx);
   }
   if (p->weight_type == "s4clip_scalef32") {
+    return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightS4ClipScaleFp32>(p, ctx);
   }
   if (p->weight_type == "s4fullrange_scalef32") {
   }
