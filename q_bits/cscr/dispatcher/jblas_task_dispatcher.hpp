@@ -27,6 +27,7 @@ struct qbits_runtime_ctx {
   bool transpose;
   int64_t blocksize, m, n, k, lda, ldo;
   float alpha, beta;
+  jblas::prologue::PackedWeight* deseries_wei;
 };
 
 void task_dispatcher(qbits_config_param* p, qbits_runtime_ctx* ctx, QBITS_TASK task);

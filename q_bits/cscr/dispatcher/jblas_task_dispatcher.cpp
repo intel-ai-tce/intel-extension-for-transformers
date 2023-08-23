@@ -44,9 +44,7 @@ void qbits_dequantize(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   using PrologueB = typename KERNEL::WeightType;
   static PrologueB decompress_kernel;
   set_nk(ctx, ctx->output);
-  auto deserial_wei = jblas::prologue::weight_comp::gemm_kblcok::PackedWeightParser::deserialBuffer(
-      ctx->weight->data_ptr<int8_t>(), false);
-  auto parse_wei = dynamic_cast<typename PrologueB::StorageWeight*>(deserial_wei);
+  auto parse_wei = dynamic_cast<typename PrologueB::StorageWeight*>(ctx->deseries_wei);
   TORCH_CHECK(parse_wei != nullptr, "unresolved compressed weight.");
   if (ctx->transpose)
     decompress_kernel.unpackTransposeWeight(ctx->n, ctx->k, parse_wei, ctx->output->data_ptr<float>(), ctx->k);
@@ -57,10 +55,8 @@ void qbits_dequantize(qbits_config_param* p, qbits_runtime_ctx* ctx) {
 template <class KERNEL>
 void qbits_gemm(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   static KERNEL gemm_kernel;
-  auto deserial_wei = jblas::prologue::weight_comp::gemm_kblcok::PackedWeightParser::deserialBuffer(
-      ctx->weight->data_ptr<int8_t>(), false);
   if (p->src_dt == QBITS_FP32 && p->dst_dt == QBITS_FP32) {
-    gemm_kernel.compute({ctx->m, ctx->n, ctx->k, ctx->activation->data_ptr<float>(), ctx->lda, deserial_wei,
+    gemm_kernel.compute({ctx->m, ctx->n, ctx->k, ctx->activation->data_ptr<float>(), ctx->lda, ctx->deseries_wei,
                          ctx->output->data_ptr<float>(), ctx->bias->data_ptr<float>(), ctx->ldo, 0, ctx->alpha,
                          ctx->beta, NULL});
     return;
@@ -141,17 +137,29 @@ void parse_weight(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     if constexpr (ISA != JblasAMX_INT8 && ISA != JblasAVX512_VNNI)
       return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightNf4ScaleFp32>(p, ctx);
   }
+  if (p->weight_type == "s4clip_scalebf16") {
+    return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightS4ClipScaleBf16>(p, ctx);
+  }
+  if (p->weight_type == "s4fullrange_scalebf16") {
+    return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightS4FullRangeScaleBf16>(p, ctx);
+  }
   TORCH_CHECK(false, "unsupported jblas_config, weight_type==" + p->weight_type + " weight_type==" + p->weight_type);
 }
 
 template <QBITS_TASK TASK>
-void parse_gemm_core(qbits_config_param* p, qbits_runtime_ctx* ctx) {
+void parse_gemm_core_online(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   if (p->compute_type == "int8") {
     if (check_amx()) {
-      return parse_weight<TASK, jblas::wrapper::gemm_kblock::GemmInterfaceKBlockPackWeight,
-                          jblas::wrapper::gemm_kblock::GemmSLauncherKBlockPackWeight,
-                          jblas::gemm::kblock::GemmCore_Row_NN_16x48_AMX_INT8_KBLOCK,
-                          jblas::utils::parallel::Parallel2DGemmKBlockFixed, JblasAMX_INT8>(p, ctx);
+      if (ctx->blocksize % 128 == 0)
+        return parse_weight<TASK, jblas::wrapper::gemm_kblock::GemmInterfaceKBlockPackWeight,
+                            jblas::wrapper::gemm_kblock::GemmSLauncherKBlockPackWeight,
+                            jblas::gemm::kblock::GemmCore_Row_NN_16x48_AMX_INT8_KBLOCK,
+                            jblas::utils::parallel::Parallel2DGemmKBlockFixed, JblasAMX_INT8>(p, ctx);
+      else
+        return parse_weight<TASK, jblas::wrapper::gemm_kblock::GemmInterfaceKBlockPackWeight,
+                            jblas::wrapper::gemm_kblock::GemmSLauncherKBlockPackWeight,
+                            jblas::gemm::kblock::GemmCore_Row_NN_3x48_AVX512_VNNI_KBLOCK,
+                            jblas::utils::parallel::Parallel2DGemmKBlockFixed, JblasAVX512_VNNI>(p, ctx);
     }
     if (check_vnni()) {
       return parse_weight<TASK, jblas::wrapper::gemm_kblock::GemmInterfaceKBlockPackWeight,
@@ -180,6 +188,64 @@ void parse_gemm_core(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     TORCH_CHECK(false, "device ISA must support AMX-BF16 when compute_type==bf16");
   }
   TORCH_CHECK(false, "unsupported jblas_config, compute_type==" + p->compute_type + " weight_type==" + p->weight_type);
+}
+template <QBITS_TASK TASK>
+void parse_gemm_core_offline(qbits_config_param* p, qbits_runtime_ctx* ctx) {
+  ctx->deseries_wei = jblas::prologue::weight_comp::gemm_kblcok::PackedWeightParser::deserialBuffer(
+      ctx->weight->data_ptr<int8_t>(), false);
+  auto gemm_core_type = ctx->deseries_wei->mCoreType;
+  auto wbtmp = dynamic_cast<jblas::prologue::weight_comp::PackedWeightKBlock*>(ctx->deseries_wei);
+  auto blocksize = wbtmp->mBlockSize;
+  switch (gemm_core_type) {
+    case jblas::gemm::GemmCoreType::AMX_INT8_16X48_KBLOCK:
+    case jblas::gemm::GemmCoreType::AVX512_VNNI_8X48:
+    case jblas::gemm::GemmCoreType::AVX512_VNNI_3X48_KBLOCK:
+      assert(p->compute_type == "int8");
+      if (check_amx() && blocksize % 128 == 0) {
+        return parse_weight<TASK, jblas::wrapper::gemm_kblock::GemmInterfaceKBlockPackWeight,
+                            jblas::wrapper::gemm_kblock::GemmSLauncherKBlockPackWeight,
+                            jblas::gemm::kblock::GemmCore_Row_NN_16x48_AMX_INT8_KBLOCK,
+                            jblas::utils::parallel::Parallel2DGemmKBlockFixed, JblasAMX_INT8>(p, ctx);
+      } else if (check_vnni()) {
+        return parse_weight<TASK, jblas::wrapper::gemm_kblock::GemmInterfaceKBlockPackWeight,
+                            jblas::wrapper::gemm_kblock::GemmSLauncherKBlockPackWeight,
+                            jblas::gemm::kblock::GemmCore_Row_NN_3x48_AVX512_VNNI_KBLOCK,
+                            jblas::utils::parallel::Parallel2DGemmKBlockFixed, JblasAVX512_VNNI>(p, ctx);
+      }
+      TORCH_CHECK(false, "device ISA must lagger than VNNI when compute_type==int8");
+      break;
+    case jblas::gemm::GemmCoreType::AVX512F_8X48:
+      assert(p->compute_type == "fp32");
+      if (check_avx512f()) {
+        return parse_weight<TASK, jblas::wrapper::gemm_pack_weight::GemmInterfacePackWeight,
+                            jblas::wrapper::gemm_pack_weight::GemmLauncherPackWeight,
+                            jblas::gemm::GemmCore_Row_NN_8x48_AVX512F, jblas::utils::parallel::Parallel2DGemm,
+                            JblasAVX512F>(p, ctx);
+      }
+      TORCH_CHECK(false, "device ISA must lagger than AVX512F when compute_type==fp32");
+      break;
+    case jblas::gemm::GemmCoreType::AMX_BF16_16x64:
+      assert(p->compute_type == "bf16");
+      if (check_amx()) {
+        return parse_weight<TASK, jblas::wrapper::gemm_pack_weight::GemmInterfacePackWeight,
+                            jblas::wrapper::gemm_pack_weight::GemmLauncherPackWeight,
+                            jblas::gemm::GemmCore_Row_NN_16x64_AMX_BF16, jblas::utils::parallel::Parallel2DGemm,
+                            JblasAMX_BF16>(p, ctx);
+      }
+      TORCH_CHECK(false, "device ISA must support AMX-BF16 when compute_type==bf16");
+    default:
+      break;
+  }
+
+  TORCH_CHECK(false, "unrecognized gemm core");
+}
+
+template <QBITS_TASK TASK>
+void parse_gemm_core(qbits_config_param* p, qbits_runtime_ctx* ctx) {
+  if constexpr (TASK == QBITS_QUANTIZE)
+    return parse_gemm_core_online<TASK>(p, ctx);
+  else
+    return parse_gemm_core_offline<TASK>(p, ctx);
 }
 
 void task_dispatcher(qbits_config_param* p, qbits_runtime_ctx* ctx, QBITS_TASK task) {
