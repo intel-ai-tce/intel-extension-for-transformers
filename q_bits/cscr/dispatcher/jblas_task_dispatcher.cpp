@@ -143,7 +143,7 @@ void parse_weight(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   if (p->weight_type == "s4fullrange_scalebf16") {
     return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightS4FullRangeScaleBf16>(p, ctx);
   }
-  TORCH_CHECK(false, "unsupported jblas_config, weight_type==" + p->weight_type + " weight_type==" + p->weight_type);
+  TORCH_CHECK(false, "unsupported jblas_config, compute_type==" + p->compute_type + " weight_type==" + p->weight_type);
 }
 
 template <QBITS_TASK TASK>
@@ -201,18 +201,20 @@ void parse_gemm_core_offline(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     case jblas::gemm::GemmCoreType::AVX512_VNNI_8X48:
     case jblas::gemm::GemmCoreType::AVX512_VNNI_3X48_KBLOCK:
       assert(p->compute_type == "int8");
-      if (check_amx() && blocksize % 128 == 0) {
+      if (check_amx() && blocksize % (jblas::gemm::kblock::GemmCore_Row_NN_16x48_AMX_INT8_KBLOCK::KTILE * 2) == 0) {
         return parse_weight<TASK, jblas::wrapper::gemm_kblock::GemmInterfaceKBlockPackWeight,
                             jblas::wrapper::gemm_kblock::GemmSLauncherKBlockPackWeight,
                             jblas::gemm::kblock::GemmCore_Row_NN_16x48_AMX_INT8_KBLOCK,
                             jblas::utils::parallel::Parallel2DGemmKBlockFixed, JblasAMX_INT8>(p, ctx);
-      } else if (check_vnni()) {
+      } else if (check_vnni() &&
+                 blocksize % (jblas::gemm::kblock::GemmCore_Row_NN_3x48_AVX512_VNNI_KBLOCK::KTILE * 2) == 0) {
         return parse_weight<TASK, jblas::wrapper::gemm_kblock::GemmInterfaceKBlockPackWeight,
                             jblas::wrapper::gemm_kblock::GemmSLauncherKBlockPackWeight,
                             jblas::gemm::kblock::GemmCore_Row_NN_3x48_AVX512_VNNI_KBLOCK,
                             jblas::utils::parallel::Parallel2DGemmKBlockFixed, JblasAVX512_VNNI>(p, ctx);
       }
-      TORCH_CHECK(false, "device ISA must lagger than VNNI when compute_type==int8");
+      TORCH_CHECK(false, "Illegal config in int8 compute_type: blocksize:", blocksize,
+                  " ISA largger than vnni:", check_vnni());
       break;
     case jblas::gemm::GemmCoreType::AVX512F_8X48:
       assert(p->compute_type == "fp32");
