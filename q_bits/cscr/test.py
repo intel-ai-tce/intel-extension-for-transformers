@@ -20,7 +20,8 @@ def capture_args(f):
 
 
 @capture_args
-def test_fp32in_fp32_out(m, n, k, blocksize, compute_type, weight_type, transpose, add_bias, dump_tensor_info=False):
+def test_fp32in_fp32out(m, n, k, blocksize, compute_type, weight_type, transpose, add_bias, dump_tensor_info=False):
+    torch.manual_seed(0)
     activation = torch.rand(m, k, dtype=torch.float)
     wei_row = k
     wei_col = n
@@ -60,7 +61,8 @@ def test_fp32in_fp32_out(m, n, k, blocksize, compute_type, weight_type, transpos
 
 configs = {"s8_scalef32": {"int8", "fp32"}, "s4clip_scalef32": {"int8", "fp32", "bf16"}, "s4fullrange_scalef32": {
     "int8", "fp32", "bf16"}, "fp4bnb_scalef32": {"fp32", "bf16"}, "fp4e2m1_scalef32": {"fp32", "bf16"}, "nf4_scalef32": {"fp32", "bf16"}}
-blocksizes = [12, 8, 64]
+
+blocksizes = [8, 12, 64]
 do_trans = [False, True]
 add_bias = [False, True]
 
@@ -74,5 +76,5 @@ for weight_type in configs:
                 continue
             for trans in do_trans:
                 for bias in add_bias:
-                    test_fp32in_fp32_out(m, n, k, blocksize,
-                                         compute_type, weight_type, trans, add_bias)
+                    test_fp32in_fp32out(m, n, k, blocksize,
+                                        compute_type, weight_type, trans, bias)

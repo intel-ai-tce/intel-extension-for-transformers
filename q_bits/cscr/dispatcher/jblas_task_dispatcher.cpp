@@ -33,7 +33,7 @@ void qbits_quantize(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   if (ctx->transpose)
     compress_kernel.packTransposeWeight(ctx->n, ctx->k, ctx->weight->data_ptr<float>(), ctx->k, ptr);
   else
-    compress_kernel.packWeight(ctx->n, ctx->k, ctx->weight->data_ptr<float>(), ctx->k, ptr);
+    compress_kernel.packWeight(ctx->n, ctx->k, ctx->weight->data_ptr<float>(), ctx->n, ptr);
   auto size = ptr->getSerializedSize();
   *(ctx->output) = torch::zeros(size, torch::kInt8);
   ptr->serializeToBuffer(ctx->output->data_ptr<int8_t>());
@@ -49,7 +49,7 @@ void qbits_dequantize(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   if (ctx->transpose)
     decompress_kernel.unpackTransposeWeight(ctx->n, ctx->k, parse_wei, ctx->output->data_ptr<float>(), ctx->k);
   else
-    decompress_kernel.unpackWeight(ctx->n, ctx->k, parse_wei, ctx->output->data_ptr<float>(), ctx->k);
+    decompress_kernel.unpackWeight(ctx->n, ctx->k, parse_wei, ctx->output->data_ptr<float>(), ctx->n);
 }
 
 template <class KERNEL>
