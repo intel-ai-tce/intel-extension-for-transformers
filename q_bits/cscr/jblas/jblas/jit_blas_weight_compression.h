@@ -352,10 +352,16 @@ class WeightS8ScaleFp32 {
       auto KPad = wptr->mKPad;
       auto bptr = wptr->mWPtr + n_offset * KPad + k_offset * _GemmCore_T::NTILE;
       for (int i = 0; i < n_size; i += _GemmCore_T::NTILE) {
-        kernel::wrapper::DecompressKBlockS8F32::forward<ISA_T, float>(
-            bptr + i * KPad, *dstptr + i * k_size, k_size / _GemmCore_T::PACK_ROW,
-            _GemmCore_T::NTILE * _GemmCore_T::PACK_ROW, _GemmCore_T::NTILE * _GemmCore_T::PACK_ROW,
-            _GemmCore_T::NTILE * _GemmCore_T::PACK_ROW, wptr->mSPtr + n_offset + i, k_offset, wptr->mBlockSize, NPad);
+        if (_GemmCore_T::PACK_ROW == 1) {
+          kernel::wrapper::DecompressKBlockS8F32::forward<ISA_T, float>(
+              bptr + i * KPad, *dstptr + i * k_size, k_size / _GemmCore_T::PACK_ROW,
+              _GemmCore_T::NTILE * _GemmCore_T::PACK_ROW, _GemmCore_T::NTILE * _GemmCore_T::PACK_ROW,
+              _GemmCore_T::NTILE * _GemmCore_T::PACK_ROW, wptr->mSPtr + n_offset + i, k_offset, wptr->mBlockSize, NPad);
+        } else {
+          kernel::wrapper::DecompressKBlockS8FP32PackRow::forward<ISA_T, float>(
+              bptr + i * KPad, *dstptr + i * k_size, k_size, _GemmCore_T::NTILE, _GemmCore_T::NTILE, _GemmCore_T::NTILE,
+              wptr->mSPtr + n_offset + i, k_offset, wptr->mBlockSize, NPad, _GemmCore_T::PACK_ROW);
+        }
       }
       *dststep = k_size;
       return JblasSuccess;

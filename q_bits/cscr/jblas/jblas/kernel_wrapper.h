@@ -305,6 +305,17 @@ class DecompressKBlockS8F32 {
   }
 };
 
+class DecompressKBlockS8FP32PackRow {
+ public:
+  template <JBLAS_ISA ISA_T, typename _T>
+  static inline JBLAS_CODE forward(int8_t* srcptr, float* dstptr, int row, int col, int ld_src, int ld_dst, _T* scales,
+                                   int k_offset, int kblock, int NPad, int packrow) {
+    JBLAS_CODE ret = JblasNotSupport;
+    return ref::decompress_kblock_s8_f32_packrow(srcptr, dstptr, row, col, ld_src, ld_dst, scales, k_offset, kblock,
+                                                 NPad, packrow);
+  }
+};
+
 class AlphaBetaF32F32 {
  public:
   template <JBLAS_ISA ISA_T>

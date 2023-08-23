@@ -58,15 +58,16 @@ def test_fp32in_fp32_out(m, n, k, blocksize, compute_type, weight_type, transpos
         print("fail")
 
 
-test_fp32in_fp32_out(64, 64, 64, 32, "fp32", "s8_scalef32",True, False)
-test_fp32in_fp32_out(255, 1023, 511, 64, "fp32",
+test_fp32in_fp32_out(255, 1023, 511, 128, "int8", "s8_scalef32",True, False)# kblock must align with 128 when compute_type==int8
+
+test_fp32in_fp32_out(255, 1023, 511, 68, "fp32",
                      "s4clip_scalef32",True, False)
-test_fp32in_fp32_out(255, 1023, 511, 64, "bf16",
+test_fp32in_fp32_out(255, 1023, 511, 68, "bf16",
                      "s4clip_scalef32",True, False)
-test_fp32in_fp32_out(255, 1023, 511, 64, "int8",
-                     "s4clip_scalef32",True, False)
-test_fp32in_fp32_out(255, 1023, 511, 64, "fp32",
+test_fp32in_fp32_out(255, 1023, 511, 128, "int8",
+                     "s4clip_scalef32",True, False)# kblock must align with 128 when compute_type==int8
+test_fp32in_fp32_out(255, 1023, 511, 68, "fp32",
                      "nf4_scalef32",True, False)
                      
-test_fp32in_fp32_out(255, 1023, 511, 64, "bf16",
+test_fp32in_fp32_out(255, 1023, 511, 68, "bf16",
                      "nf4_scalef32",True, False)
