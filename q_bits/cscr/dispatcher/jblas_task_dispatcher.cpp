@@ -52,19 +52,28 @@ void qbits_dequantize(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     decompress_kernel.unpackWeight(ctx->n, ctx->k, parse_wei, ctx->output->data_ptr<float>(), ctx->n);
 }
 
-template <class KERNEL>
+template <class KERNEL, JBLAS_ISA ISA>
 void qbits_gemm(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   static KERNEL gemm_kernel;
   if (p->src_dt == QBITS_FP32 && p->dst_dt == QBITS_FP32) {
-    gemm_kernel.compute({ctx->m, ctx->n, ctx->k, ctx->activation->data_ptr<float>(), ctx->lda, ctx->deseries_wei,
-                         ctx->output->data_ptr<float>(), ctx->bias->data_ptr<float>(), ctx->ldo, 0, ctx->alpha,
-                         ctx->beta, NULL});
+    if constexpr (ISA != JblasAMX_INT8 && ISA != JblasAVX512_VNNI) {
+      gemm_kernel.compute({ctx->m, ctx->n, ctx->k, ctx->activation->data_ptr<float>(), ctx->lda, ctx->deseries_wei,
+                           ctx->output->data_ptr<float>(), ctx->bias->data_ptr<float>(), ctx->ldo, 0, ctx->alpha,
+                           ctx->beta, NULL});
+    } else {
+      auto quantA = gemm_kernel.getActivationPtr()->createStorage(
+          ctx->m, ctx->k, ctx->blocksize, NULL);  // TODO(zhe): pass by python user, config the workspace buffer & size.
+      gemm_kernel.compute({ctx->m, ctx->n, ctx->k, ctx->activation->data_ptr<float>(), ctx->lda, quantA,
+                           ctx->deseries_wei, ctx->output->data_ptr<float>(), ctx->bias->data_ptr<float>(), ctx->ldo, 0,
+                           ctx->alpha, ctx->beta, NULL});
+      delete quantA;
+    }
     return;
   }
   TORCH_CHECK(false, "unsupported src & dst data_type combination.")
 }
 
-template <QBITS_TASK TASK, class KERNEL>
+template <QBITS_TASK TASK, class KERNEL, JBLAS_ISA ISA>
 void execute_task(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   switch (TASK) {
     case QBITS_QUANTIZE:
@@ -72,7 +81,7 @@ void execute_task(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     case QBITS_DEQUANTIZE:
       return qbits_dequantize<KERNEL>(p, ctx);
     case QBITS_LINEAR:
-      return qbits_gemm<KERNEL>(p, ctx);
+      return qbits_gemm<KERNEL, ISA>(p, ctx);
   }
 }
 
@@ -81,8 +90,8 @@ template <QBITS_TASK TASK, INTERFACE_TEMPLATE, LAUNCHER_TEMPLATE, class Gemmcore
 void parse_store(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   if (p->dst_dt == QBITS_FP32) {
     using namespace jblas::epilogue::gemm;
-    return execute_task<TASK, Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, AlphaBetaProcessFp32>, Parallel>>(
-        p, ctx);
+    return execute_task<TASK, Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, AlphaBetaProcessFp32>, Parallel>,
+                        ISA>(p, ctx);
   }
   TORCH_CHECK(false, "unsupported dst data type.");
 }
@@ -137,12 +146,6 @@ void parse_weight(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     if constexpr (ISA != JblasAMX_INT8 && ISA != JblasAVX512_VNNI)
       return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightNf4ScaleFp32>(p, ctx);
   }
-  if (p->weight_type == "s4clip_scalebf16") {
-    return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightS4ClipScaleBf16>(p, ctx);
-  }
-  if (p->weight_type == "s4fullrange_scalebf16") {
-    return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightS4FullRangeScaleBf16>(p, ctx);
-  }
   TORCH_CHECK(false, "unsupported jblas_config, compute_type==" + p->compute_type + " weight_type==" + p->weight_type);
 }
 
@@ -196,6 +199,7 @@ void parse_gemm_core_offline(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   auto gemm_core_type = ctx->deseries_wei->mCoreType;
   auto wbtmp = dynamic_cast<jblas::prologue::weight_comp::PackedWeightKBlock*>(ctx->deseries_wei);
   auto blocksize = wbtmp->mBlockSize;
+  ctx->blocksize = blocksize;
   switch (gemm_core_type) {
     case jblas::gemm::GemmCoreType::AMX_INT8_16X48_KBLOCK:
     case jblas::gemm::GemmCoreType::AVX512_VNNI_8X48:
