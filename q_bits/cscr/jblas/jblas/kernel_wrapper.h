@@ -375,6 +375,18 @@ class MinMaxKBlock {
   }
 };
 
+class RemoveZeroPointBias {
+ public:
+  template <JBLAS_ISA ISA_T>
+  static inline JBLAS_CODE forward(float* accptr, int ldacc, int row, int col, uint8_t* zps, float* scales, int lds,
+                                   const float* reduce) {
+    if (utils::isa_base<ISA_T>::avx512f) {
+      return avx512f::remove_zeropoint_bias(accptr, ldacc, row, col, zps, scales, lds, reduce);
+    }
+    return ref::remove_zeropoint_bias(accptr, ldacc, row, col, zps, scales, lds, reduce);
+  }
+};
+
 }  // namespace wrapper
 }  // namespace kernel
 }  // namespace jblas

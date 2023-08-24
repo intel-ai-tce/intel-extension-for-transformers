@@ -510,7 +510,7 @@ class CpuDevice {
 #define CheckISA(ISA)                       \
   {                                         \
     GetCPUDevice() if (!_cd->ISA()) {       \
-      printf("Wrong Device ISA" #ISA "\n"); \
+      printf("Wrong Device ISA: " #ISA "\n"); \
       return;                               \
     }                                       \
   }

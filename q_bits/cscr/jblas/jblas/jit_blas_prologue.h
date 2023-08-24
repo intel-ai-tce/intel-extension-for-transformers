@@ -142,38 +142,77 @@ class ActivationConverterFp32 {
   }
 };
 
+template <typename QT_T, typename ST_T>
+class StorageQuantActivation {
+ public:
+  QT_T *mWPtr, *mZPtr;
+  ST_T* mSPtr;
+  int lda, lds;
+  void resize(int m, int lda, int lds, int8_t* ptr) {
+    if (ptr) {
+      setPtr(m, lda, lds, ptr);
+    } else {
+      auto size = getSize(m, lda, lds);
+      mBuffer.resize(size);
+      setPtr(m, lda, lds, mBuffer.data());
+    }
+  }
+
+  static size_t getSize(int m, int lda, int lds) {
+    size_t total = 0;
+    total = size_t(m) * lda * sizeof(QT_T) + (size_t)m * lds * (sizeof(QT_T) + sizeof(ST_T));
+    return total;
+  }
+
+  void setPtr(int m, int _lda, int _lds, int8_t* ptr) {
+    lds = _lds;
+    lda = _lda;
+    mWPtr = (QT_T*)ptr;
+    mZPtr = (QT_T*)(mWPtr + m * lda);
+    mSPtr = (ST_T*)(mZPtr + m * lds);
+  }
+
+  utils::avector<int8_t> mBuffer;
+};
+
+template <typename QT_T, typename ST_T>
+class StorageQuantActivationKblock : public StorageQuantActivation<QT_T, ST_T> {
+ public:
+  int kblock;
+  void resize(int m, int k, int _kblock, int8_t* ptr) {
+    if (ptr) {
+      setPtr(m, k, _kblock, ptr);
+    } else {
+      auto size = getSize(m, k, _kblock);
+      this->mBuffer.resize(size);
+      setPtr(m, k, _kblock, this->mBuffer.data());
+    }
+  }
+
+  static size_t getSize(int m, int k, int kblock) {
+    int lda = k;
+    int lds = utils::updiv(k, kblock);
+    return StorageQuantActivation<QT_T, ST_T>::getSize(m, lda, lds);
+  }
+
+  void setPtr(int m, int k, int _kblock, int8_t* ptr) {
+    kblock = _kblock;
+    int lda = k;
+    int lds = utils::updiv(k, kblock);
+    StorageQuantActivation<QT_T, ST_T>::setPtr(m, lda, lds, ptr);
+  }
+};
+
 template <class _GemmCore_T, JBLAS_ISA ISA_T>
 class ActivationF32U8KBlockQuantize {
  public:
   using AType = typename _GemmCore_T::AType;
-  using AQType = uint8_t;
   using SType = float;
+  using QParam = StorageQuantActivationKblock<AType, SType>;
   struct Param {
     const float* A;
     int lda;
-  };
-  struct QuanParam {
-    AQType* A = 0;
-    AQType* zp = 0;
-    int lda = 0;
-    SType* scales = 0;
-    int lds = 0;
-    int kblock = 0;
-
-    void resize(int m, int kpad, int _kblock) {
-      kblock = _kblock;
-      lda = kpad;
-      mA.resize(m * lda);
-      A = mA.data();
-      lds = utils::updiv(kpad, _kblock);
-      mScales.resize(m * lds);
-      mZp.resize(m * lds);
-      scales = mScales.data();
-      zp = mZp.data();
-    }
-    utils::aligned_vector<AQType> mA;
-    utils::aligned_vector<AQType> mZp;
-    utils::aligned_vector<SType> mScales;
+    QParam* quan;
   };
   using Parallel = utils::parallel::Parallel2DRowMajorColBlock;
 
@@ -184,75 +223,136 @@ class ActivationF32U8KBlockQuantize {
     return _paral;
   }
 
-  QuanParam createObj(int m, int k, int kblock) {
-    QuanParam quan;
+  QParam* createStorage(int m, int k, int kblock, int8_t* workspace) {
+    auto ptr = new QParam;
     int kpad = utils::padto(k, _GemmCore_T::KTILE);
-    quan.resize(m, kpad, kblock);
-    return quan;
+    ptr->resize(m, kpad, kblock, workspace);
+    return ptr;
   }
 
-  void quantizeT(const Param& _param, int tidx, QuanParam& quan, Parallel& para) {
+  void launch(const Param& _param, int tidx, Parallel& para) {
     int colidx, rowidx, rowsize, colsize;
     int blkidx, idxinblk;
     para.getIndex(tidx, &rowidx, &colidx, &rowsize, &colsize, &blkidx, &idxinblk);
-
+    auto quan = _param.quan;
     if (rowsize > 0 && colsize > 0) {
       // min max
       auto srcptr = _param.A + rowidx * _param.lda + colidx;
       int rowremain = utils::remainsize(rowidx, para.mRows, rowsize);
       int colremain = utils::remainsize(colidx, para.mCols, colsize);
-      auto thdqptr = quan.A + rowidx * quan.lda + colidx;
-      auto thdsptr = quan.scales + rowidx * quan.lds + blkidx;
-      auto thdzptr = quan.zp + rowidx * quan.lds + blkidx;
+      auto thdqptr = quan->mWPtr + rowidx * quan->lda + colidx;
+      auto thdsptr = quan->mSPtr + rowidx * quan->lds + blkidx;
+      auto thdzptr = quan->mZPtr + rowidx * quan->lds + blkidx;
       kernel::wrapper::QuantizeU8ColBlock::template forward<ISA_T>(
-          rowremain, colremain, srcptr, _param.lda, thdqptr, quan.lda, thdsptr, quan.lds, thdzptr, para.mColBlock);
+          rowremain, colremain, srcptr, _param.lda, thdqptr, quan->lda, thdsptr, quan->lds, thdzptr, para.mColBlock);
     }
   }
 
-  QuanParam quantize(const Param& _param, int m, int k, int kblock) {
-    utils::parallel::Parallel2DRowMajorColBlock paral = createParallel(m, k, kblock);
-    QuanParam quan = createObj(m, k, kblock);
+  void quantize(const Param& _param, int m, int k) {
+    utils::parallel::Parallel2DRowMajorColBlock paral = createParallel(m, k, _param.quan->kblock);
     if (paral.mThdsPerBlock == 1) {  // no barrier
 #pragma omp parallel
       {
         int tidx = omp_get_thread_num();
-        quantizeT(_param, tidx, quan, paral);
+        launch(_param, tidx, paral);
       }
     } else {
       assert(0);
     }
-    return quan;
   }
 
-  JBLAS_CODE getActivation(AType** dstptr, int* dststep, const QuanParam& _param, int m_size, int k_size, int m_offset,
+  JBLAS_CODE getActivation(AType** dstptr, int* dststep, const Param& _param, int m_size, int k_size, int m_offset,
                            int k_offset) {
-    auto aptr = const_cast<AType*>(_param.A);
+    auto quan = _param.quan;
+    auto aptr = const_cast<AType*>(quan->mWPtr);
     *dstptr = aptr + m_offset * _param.lda + k_offset;
     *dststep = _param.lda;
     return JblasSuccess;
   }
 
-  JBLAS_CODE getScale(SType** dstptr, int* dststep, const QuanParam& _param, int m_size, int k_size, int m_offset,
+  JBLAS_CODE getScale(SType** dstptr, int* dststep, const Param& _param, int m_size, int k_size, int m_offset,
                       int k_offset) {
-    auto ptr = const_cast<SType*>(_param.scales);
-    *dstptr = ptr + m_offset * _param.lds + k_offset / _param.kblock;
-    *dststep = _param.lds;
+    auto quan = _param.quan;
+    auto ptr = const_cast<SType*>(quan->mSPtr);
+    *dstptr = ptr + m_offset * quan->lds + k_offset / quan->kblock;
+    *dststep = quan->lds;
     return JblasSuccess;
   }
 
-  static inline JBLAS_CODE getZp(AType** dstptr, int* dststep, const QuanParam& _param, int m_size, int k_size,
+  static inline JBLAS_CODE getZp(AType** dstptr, int* dststep, const Param& _param, int m_size, int k_size,
                                  int m_offset, int k_offset) {
-    *dstptr = &_param.zp[(m_offset)*_param.lds + k_offset / _param.kblock];
-    *dststep = _param.lds;
+    auto quan = _param.quan;
+    *dstptr = &quan->mZPtr[(m_offset)*quan->lds + k_offset / quan->kblock];
+    *dststep = quan->lds;
+    return JblasSuccess;
+  }
+};
+
+template <class _GemmCore_T, JBLAS_ISA ISA_T>
+class ActivationFp32AsymU8Quantize {
+ public:
+  using AType = typename _GemmCore_T::AType;
+  using SType = float;
+  using QParam = StorageQuantActivation<AType, SType>;
+  struct Param {
+    const float* A;
+    int lda;
+    QParam* Q;
+  };
+  using Parallel = utils::parallel::Parallel2DRowMajor;
+
+  Parallel createParallel(int m, int k) {
+    Parallel _paral;
+    auto cb = utils::CpuBase();
+    _paral.update(m, k, 1, k, cb.mNumThreads);
+    return _paral;
+  }
+
+  size_t getWorkSpaceSize(int m, int k) {
+    int kpad = utils::padto(k, _GemmCore_T::KTILE);
+    size_t totalsize = QParam::getSize(m, kpad, 1);
+    return totalsize;
+  }
+
+  QParam* createStorage(int m, int k, int8_t* workspace) {
+    auto ptr = new QParam;
+    int kpad = utils::padto(k, _GemmCore_T::KTILE);
+    ptr->resize(m, kpad, 1, workspace);
+    return ptr;
+  }
+
+  void launch(const Param& _param, int tidx, Parallel& para) {
+    int colidx, rowidx, rowsize, colsize;
+    para.getIndex(tidx, &rowidx, &colidx, &rowsize, &colsize);
+    auto quan = _param.Q;
+    if (rowsize > 0 && colsize > 0) {
+      // min max
+      auto srcptr = _param.A + rowidx * _param.lda + colidx;
+      int rowremain = utils::remainsize(rowidx, para.mRows, rowsize);
+      int colremain = utils::remainsize(colidx, para.mCols, colsize);
+      auto thdqptr = quan->mWPtr + rowidx * quan->lda + colidx;
+      auto thdsptr = quan->mSPtr + rowidx * quan->lds;
+      auto thdzptr = quan->mZPtr + rowidx * quan->lds;
+      kernel::wrapper::QuantizeU8ColBlock::template forward<ISA_T>(rowremain, colremain, srcptr, _param.lda, thdqptr,
+                                                                   quan->lda, thdsptr, quan->lds, thdzptr, para.mCols);
+    }
+  }
+
+  JBLAS_CODE quantize(const Param& _param, int m, int k) {
+    auto paral = createParallel(m, k);
+#pragma omp parallel
+    {
+      int tidx = omp_get_thread_num();
+      launch(_param, tidx, paral);
+    }
     return JblasSuccess;
   }
 
-  static inline JBLAS_CODE getZpBroadcast(AType** dstptr, int* dststep, const QuanParam& _param, int m_size, int k_size,
-                                          int m_offset, int k_offset) {
-    for (size_t i = 0; i < m_size; i++) {
-      auto zpval = _param.zp[(m_offset + i) * _param.lds + k_offset / _param.kblock];
-      kernel::wrapper::Broadcast::template forward<ISA_T>(_param.kblock, zpval, *dstptr + i * _param.kblock);
-    }
+  JBLAS_CODE getActivation(AType** dstptr, int* dststep, const Param& _param, int m_size, int k_size, int m_offset,
+                           int k_offset) {
+    auto aptr = const_cast<AType*>(_param.Q->mWPtr);
+    *dstptr = aptr + m_offset * _param.Q->lda + k_offset;
+    *dststep = _param.Q->lda;
     return JblasSuccess;
   }
 };
@@ -261,32 +361,15 @@ template <class _GemmCore_T, JBLAS_ISA ISA_T>
 class ActivationF32S8KBlockQuantize {
  public:
   using AType = typename _GemmCore_T::AType;
-  using AQType = int8_t;
   using SType = float;
+  using QParam = StorageQuantActivationKblock<AType, SType>;
+  using Parallel = utils::parallel::Parallel2DRowMajorColBlock;
+
   struct Param {
     const float* A;
     int lda;
+    QParam* quan;
   };
-  struct QuanParam {
-    AQType* A = 0;
-    int lda = 0;
-    SType* scales = 0;
-    int lds = 0;
-    int kblock = 0;
-
-    void resize(int m, int kpad, int _kblock) {
-      kblock = _kblock;
-      lda = kpad;
-      mA.resize(m * lda);
-      A = mA.data();
-      lds = utils::updiv(kpad, _kblock);
-      mScales.resize(m * lds);
-      scales = mScales.data();
-    }
-    utils::aligned_vector<AQType> mA;
-    utils::aligned_vector<SType> mScales;
-  };
-  using Parallel = utils::parallel::Parallel2DRowMajorColBlock;
 
   Parallel createParallel(int m, int k, int kblock) {
     Parallel _paral;
@@ -295,66 +378,136 @@ class ActivationF32S8KBlockQuantize {
     return _paral;
   }
 
-  QuanParam createObj(int m, int k, int kblock) {
-    QuanParam quan;
+  QParam* createStorage(int m, int k, int kblock, int8_t* workspace) {
+    auto ptr = new QParam;
     int kpad = utils::padto(k, _GemmCore_T::KTILE);
-    quan.resize(m, kpad, kblock);
-    return quan;
+    ptr->resize(m, kpad, kblock, workspace);
+    return ptr;
   }
 
-  void quantizeT(const Param& _param, int tidx, QuanParam& quan, Parallel& para) {
+  void launch(const Param& _param, int tidx, Parallel& para) {
     int colidx, rowidx, rowsize, colsize;
     int blkidx, idxinblk;
     para.getIndex(tidx, &rowidx, &colidx, &rowsize, &colsize, &blkidx, &idxinblk);
-
+    auto quan = _param.quan;
     if (rowsize > 0 && colsize > 0) {
       // min max
       auto srcptr = _param.A + rowidx * _param.lda + colidx;
       int rowremain = utils::remainsize(rowidx, para.mRows, rowsize);
       int colremain = utils::remainsize(colidx, para.mCols, colsize);
-      auto thdqptr = quan.A + rowidx * quan.lda + colidx;
-      auto thdsptr = quan.scales + rowidx * quan.lds + blkidx;
+      auto thdqptr = quan->mWPtr + rowidx * quan->lda + colidx;
+      auto thdsptr = quan->mSPtr + rowidx * quan->lds + blkidx;
       kernel::wrapper::QuantizeS8ColBlock::template forward<ISA_T>(rowremain, colremain, srcptr, _param.lda, thdqptr,
-                                                                   quan.lda, thdsptr, quan.lds, para.mColBlock);
+                                                                   quan->lda, thdsptr, quan->lds, para.mColBlock);
     }
   }
 
-  QuanParam quantize(const Param& _param, int m, int k, int kblock) {
-    utils::parallel::Parallel2DRowMajorColBlock paral = createParallel(m, k, kblock);
-    QuanParam quan = createObj(m, k, kblock);
+  void quantize(const Param& _param, int m, int k) {
+    utils::parallel::Parallel2DRowMajorColBlock paral = createParallel(m, k, _param.quan->kblock);
     if (paral.mThdsPerBlock == 1) {  // no barrier
 #pragma omp parallel
       {
         int tidx = omp_get_thread_num();
-        quantizeT(_param, tidx, quan, paral);
+        launch(_param, tidx, paral);
       }
     } else {
       assert(0);
     }
-    return quan;
   }
 
-  JBLAS_CODE getActivation(AType** dstptr, int* dststep, const QuanParam& _param, int m_size, int k_size, int m_offset,
+  JBLAS_CODE getActivation(AType** dstptr, int* dststep, const Param& _param, int m_size, int k_size, int m_offset,
                            int k_offset) {
-    auto aptr = const_cast<AType*>(_param.A);
-    *dstptr = aptr + m_offset * _param.lda + k_offset;
-    *dststep = _param.lda;
+    auto quan = _param.quan;
+    auto aptr = const_cast<AType*>(quan->mWPtr);
+    *dstptr = aptr + m_offset * quan->lda + k_offset;
+    *dststep = quan->lda;
     return JblasSuccess;
   }
 
-  JBLAS_CODE getScale(SType** dstptr, int* dststep, const QuanParam& _param, int m_size, int k_size, int m_offset,
+  JBLAS_CODE getScale(SType** dstptr, int* dststep, const Param& _param, int m_size, int k_size, int m_offset,
                       int k_offset) {
-    auto ptr = const_cast<SType*>(_param.scales);
-    *dstptr = ptr + m_offset * _param.lds + k_offset / _param.kblock;
-    *dststep = _param.lds;
+    auto quan = _param.quan;
+    auto ptr = const_cast<SType*>(quan->mSPtr);
+    *dstptr = ptr + m_offset * quan->lds + k_offset / quan->kblock;
+    *dststep = quan->lds;
     return JblasSuccess;
   }
 
-  static inline JBLAS_CODE getZp(AType** dstptr, int* dststep, const QuanParam& _param, int m_size, int k_size,
+  static inline JBLAS_CODE getZp(AType** dstptr, int* dststep, const Param& _param, int m_size, int k_size,
                                  int m_offset, int k_offset) {
     return JblasSuccess;
   }
 };
+
+template <class _GemmCore_T, JBLAS_ISA ISA_T>
+class ActivationFp32SymS8Quantize {
+ public:
+  using AType = typename _GemmCore_T::AType;
+  using SType = float;
+  using QParam = StorageQuantActivation<AType, SType>;
+  struct Param {
+    const float* A;
+    int lda;
+    QParam* Q;
+  };
+  using Parallel = utils::parallel::Parallel2DRowMajor;
+
+  Parallel createParallel(int m, int k) {
+    Parallel _paral;
+    auto cb = utils::CpuBase();
+    _paral.update(m, k, 1, k, cb.mNumThreads);
+    return _paral;
+  }
+
+  size_t getWorkSpaceSize(int m, int k) {
+    int kpad = utils::padto(k, _GemmCore_T::KTILE);
+    size_t totalsize = QParam::getSize(m, kpad, 1);
+    return totalsize;
+  }
+
+  QParam* createStorage(int m, int k, int8_t* workspace) {
+    auto ptr = new QParam;
+    int kpad = utils::padto(k, _GemmCore_T::KTILE);
+    ptr->resize(m, kpad, 1, workspace);
+    return ptr;
+  }
+
+  void launch(const Param& _param, int tidx, Parallel& para) {
+    int colidx, rowidx, rowsize, colsize;
+    para.getIndex(tidx, &rowidx, &colidx, &rowsize, &colsize);
+    auto quan = _param.Q;
+    if (rowsize > 0 && colsize > 0) {
+      // min max
+      auto srcptr = _param.A + rowidx * _param.lda + colidx;
+      int rowremain = utils::remainsize(rowidx, para.mRows, rowsize);
+      int colremain = utils::remainsize(colidx, para.mCols, colsize);
+      auto thdqptr = quan->mWPtr + rowidx * quan->lda + colidx;
+      auto thdsptr = quan->mSPtr + rowidx * quan->lds;
+      auto thdzptr = quan->mZPtr + rowidx * quan->lds;
+      kernel::wrapper::QuantizeS8ColBlock::template forward<ISA_T>(rowremain, colremain, srcptr, _param.lda, thdqptr,
+                                                                   quan->lda, thdsptr, quan->lds, para.mCols);
+    }
+  }
+
+  JBLAS_CODE quantize(const Param& _param, int m, int k) {
+    auto paral = createParallel(m, k);
+#pragma omp parallel
+    {
+      int tidx = omp_get_thread_num();
+      launch(_param, tidx, paral);
+    }
+    return JblasSuccess;
+  }
+
+  JBLAS_CODE getActivation(AType** dstptr, int* dststep, const Param& _param, int m_size, int k_size, int m_offset,
+                           int k_offset) {
+    auto aptr = const_cast<AType*>(_param.Q->mWPtr);
+    *dstptr = aptr + m_offset * _param.Q->lda + k_offset;
+    *dststep = _param.Q->lda;
+    return JblasSuccess;
+  }
+};
+
 
 template <typename T, JBLAS_ISA ISA_T>
 class WeightBase {
@@ -389,13 +542,19 @@ class StorageWeight : public prologue::PackedWeight {
     mType = int(WeightPrologueType::WeightPack);
   }
 
-  void resize(int NPad, int KPad) {
+  void resize(int NPad, int KPad, int8_t* ptr) {
     mNPad = NPad;
     mKPad = KPad;
-    mWeights.resize((size_t)NPad * KPad * jblas::gemm::getWeightSize(mCoreType));
-    mRawPtr = mWeights.data();
-    mRawSize = mWeights.size();
+    mRawSize = getSize(NPad, KPad, jblas::gemm::getWeightSize(mCoreType));
+    if (ptr) {
+      mRawPtr = ptr;
+    } else {
+      mBuffer.resize((size_t)NPad * KPad * jblas::gemm::getWeightSize(mCoreType));
+      mRawPtr = mBuffer.data();
+    }
   }
+
+  static size_t getSize(int NPad, int KPad, int EleBytes) { return (size_t)NPad * KPad * EleBytes; }
 
   template <typename WT>
   inline WT* getPtr() const {
@@ -426,16 +585,16 @@ class StorageWeight : public prologue::PackedWeight {
     auto rptr = reinterpret_cast<int8_t*>(buf);
     size_t rsize = utils::deserialize<size_t>(rptr);
     if (memalloc) {
-      mWeights.resize(rsize);
-      std::memcpy(mWeights.data(), rptr, rsize);
-      mRawPtr = mWeights.data();
-      mRawSize = mWeights.size();
+      mBuffer.resize(rsize);
+      std::memcpy(mBuffer.data(), rptr, rsize);
+      mRawPtr = mBuffer.data();
+      mRawSize = mBuffer.size();
     } else {
       mRawPtr = (int8_t*)rptr;
       mRawSize = rsize;
     }
   }
-  utils::aligned_vector<int8_t> mWeights;
+  utils::aligned_vector<int8_t> mBuffer;
 };
 
 template <class _GemmCore_T, JBLAS_ISA ISA_T>
@@ -443,67 +602,77 @@ class WeightPack : public WeightBase<typename _GemmCore_T::BType, ISA_T> {
  public:
   using WType = typename _GemmCore_T::BType;
   struct Param {
-    const prologue::PackedWeight* packedW;
+    const WType* B;
+    const int ldb;
+    StorageWeight* packedW;
   };
+  using Parallel = utils::parallel::Parallel2DRowMajor;
 
-  PackedWeight* packTranspose(const int N, const int K, const WType* B, const int ldb) {
-    utils::aligned_vector<float> B_NT(N * K);
-    transposeWeight(N, K, B, ldb, B_NT.data(), N);
-    return packWeight(N, K, B_NT.data(), N);
+  Parallel createParallel(int n, int k) {
+    Parallel _paral;
+    auto cb = utils::CpuBase();
+    _paral.update(k, n, _GemmCore_T::KTILE, _GemmCore_T::NTILE, cb.mNumThreads);
+    return _paral;
   }
 
-  PackedWeight* pack(const int N, const int K, const WType* B, const int ldb) { return packWeight(N, K, B, N); }
-
-  inline JBLAS_CODE getWeight(WType** dstptr, int* dststep, int k_size, int n_size, int k_offset, int n_offset,
-                              const PackedWeight* ptr) {
-    auto wptr = dynamic_cast<const StorageWeight*>(ptr);
-    if (wptr) {
-      auto NPad = wptr->mNPad;
-      auto KPad = wptr->mKPad;
-      auto bptr = wptr->getPtr<WType>() + n_offset * KPad + k_offset * _GemmCore_T::NTILE;
-      *dstptr = bptr;
-      *dststep = KPad;
-      return JblasSuccess;
-    }
-    return JblasInvalidParam;
+  size_t getWorkSpaceSize(int n, int k) {
+    int KPad = utils::padto(k, _GemmCore_T::KTILE);
+    int NPad = utils::padto(n, _GemmCore_T::NTILE);
+    return StorageWeight::getSize(NPad, KPad, jblas::gemm::getWeightSize(_GemmCore_T::TYPE));
   }
 
- protected:
-  // from KxN int8 symmetric weight to packed N//NtilexKPadxNTile int4 weight
-  PackedWeight* packWeight(const int N, const int K, const WType* B, const int ldb) {
-    int KPad = utils::padto(K, _GemmCore_T::KTILE);
-    int NPad = utils::padto(N, _GemmCore_T::NTILE);
+  StorageWeight* createStorage(int n, int k, int8_t* workspace) {
+    int KPad = utils::padto(k, _GemmCore_T::KTILE);
+    int NPad = utils::padto(n, _GemmCore_T::NTILE);
     auto ptr = new StorageWeight(_GemmCore_T::TYPE);
-    ptr->resize(NPad, KPad);
-    WType* wptr = ptr->getPtr<WType>();
-    reorder(N, K, B, ldb, wptr);
+    ptr->resize(NPad, KPad, workspace);
     return ptr;
   }
 
-  void reorder(const int N, const int K, const WType* B, const int ldb, WType* dstptr) {
-    utils::parallel::Parallel2DRowMajor _para;
+  void packWeightTranspose(const int N, const int K, const Param& _param) {
+    utils::aligned_vector<WType> B_NT(N * K);
+    WeightBase<WType, ISA_T>::transposeWeight(N, K, _param.B, _param.ldb, B_NT.data(), N);
+    return packWeight(N, K, {B_NT.data(), N, _param.packedW});
+  }
+
+  // from KxN int8 symmetric weight to packed N//NtilexKPadxNTile int4 weight
+  void packWeight(const int N, const int K, const Param& _param) {
+    auto _para = createParallel(N, K);
     utils::CpuBase cb;
-    _para.update(K, N, _GemmCore_T::KTILE, _GemmCore_T::NTILE, cb.mNumThreads);
-    int KPad = utils::padto(K, _GemmCore_T::KTILE);
     omp_set_num_threads(cb.mNumThreads);
 #pragma omp parallel
     {
       int tidx = omp_get_thread_num();
-      int colidx, rowidx, rowsize, colsize;
-      _para.getIndex(tidx, &rowidx, &colidx, &rowsize, &colsize);
-      if (rowsize > 0 && colsize > 0) {
-        int rowremain = utils::remainsize(rowidx, K,
-                                          rowsize);  // rowremain: src valid size. rowsize: padded size
-        int colremain = utils::remainsize(colidx, N, colsize);
-        const auto src = B + rowidx * ldb + colidx;
-        const auto dst = dstptr + rowidx * _GemmCore_T::NTILE + colidx * KPad;
-        using PaddingInterleaveMNWType =
-            kernel::wrapper::PaddingInterleaveMN<_GemmCore_T::NTILE, _GemmCore_T::PACK_ROW>;
-        auto ret = PaddingInterleaveMNWType::template forward<ISA_T>(  //
-            src, dst, rowremain, colremain, rowsize, colsize, ldb, KPad);
-        assert(ret == JblasSuccess);
-      }
+      launch(_param, tidx, _para);
     }
+  }
+
+  void launch(const Param& _param, int tidx, const Parallel& para) {
+    int colidx, rowidx, rowsize, colsize;
+    para.getIndex(tidx, &rowidx, &colidx, &rowsize, &colsize);
+    auto packedw = _param.packedW;
+    if (rowsize > 0 && colsize > 0) {
+      int rowremain = utils::remainsize(rowidx, para.mRows,
+                                        rowsize);  // rowremain: src valid size. rowsize: padded size
+      int colremain = utils::remainsize(colidx, para.mCols, colsize);
+      const auto src = _param.B + rowidx * _param.ldb + colidx;
+      const auto dst = packedw->template getPtr<WType>() + rowidx * _GemmCore_T::NTILE + colidx * packedw->mKPad;
+      using PaddingInterleaveMNWType = kernel::wrapper::PaddingInterleaveMN<_GemmCore_T::NTILE, _GemmCore_T::PACK_ROW>;
+      auto ret = PaddingInterleaveMNWType::template forward<ISA_T>(  //
+          src, dst, rowremain, colremain, rowsize, colsize, _param.ldb, packedw->mKPad);
+      assert(ret == JblasSuccess);
+    }
+  }
+
+  inline JBLAS_CODE getWeight(WType** dstptr, int* dststep, int k_size, int n_size, int k_offset, int n_offset,
+                              const Param param) {
+    auto wptr = param.packedW;
+    auto NPad = wptr->mNPad;
+    auto KPad = wptr->mKPad;
+    auto bptr = wptr->template getPtr<WType>() + n_offset * KPad + k_offset * _GemmCore_T::NTILE;
+    *dstptr = bptr;
+    *dststep = KPad;
+    return JblasSuccess;
   }
 };
 

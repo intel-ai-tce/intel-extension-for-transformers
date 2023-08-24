@@ -103,23 +103,6 @@ class AlphaBetaProcessFp32 {
 };
 
 template <JBLAS_ISA ISA_T>
-class DynamicInt32ToFp32 {
- public:
-  struct Param {
-    float* C;
-    int ldc;
-    float* scalesB;
-  };
-  JBLAS_CODE forward(const int32_t* cacheptr, const int cachestep, const int M_offset, const int N_offset, const int M,
-                     const int N, const Param& _param, const float* scalesA, const int ldsa) {
-    auto COffset = M_offset * _param.ldc + N_offset;
-    auto cptr = _param.C + COffset;
-    return kernel::wrapper::DequanS32Fp32::template forward<ISA_T>(
-        cacheptr, cachestep, cptr, _param.ldc, M, N, scalesA + M_offset * ldsa, ldsa, _param.scalesB + N_offset);
-  }
-};
-
-template <JBLAS_ISA ISA_T>
 class DequantInt32ToFp32 {
  public:
   struct Param {
@@ -136,6 +119,35 @@ class DequantInt32ToFp32 {
     return kernel::wrapper::DequanS32Fp32::template forward<ISA_T>(cacheptr, cachestep, cptr, _param.ldc, M, N,
                                                                    _param.scalesA + M_offset * _param.ldsa, _param.ldsa,
                                                                    _param.scalesB + N_offset);
+  }
+};
+
+template <JBLAS_ISA ISA_T>
+class ZpDequantInt32ToFp32 {
+ public:
+  struct Param {
+    float* C;
+    int ldc;
+    uint8_t* zpA;
+    float* scalesA;
+    int ldsa;
+    float* reduceB;
+    float* scalesB;
+  };
+  JBLAS_CODE forward(const int32_t* cacheptr, const int cachestep, const int M_offset, const int N_offset, const int M,
+                     const int N, const Param& _param) {
+    auto COffset = M_offset * _param.ldc + N_offset;
+    auto cptr = _param.C + COffset;
+    auto ret = kernel::wrapper::DequanS32Fp32::template forward<ISA_T>(cacheptr, cachestep, cptr, _param.ldc, M, N,
+                                                                       _param.scalesA + M_offset * _param.ldsa,
+                                                                       _param.ldsa, _param.scalesB + N_offset);
+    if (ret != JblasSuccess) {
+      return ret;
+    }
+    ret = kernel::wrapper::RemoveZeroPointBias::template forward<ISA_T>(
+        cptr, _param.ldc, M, N, _param.zpA + M_offset * _param.ldsa, _param.scalesA + M_offset * _param.ldsa,
+        _param.ldsa, _param.reduceB + N_offset);
+    return ret;
   }
 };
 

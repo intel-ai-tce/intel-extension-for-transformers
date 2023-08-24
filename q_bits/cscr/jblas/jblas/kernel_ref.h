@@ -170,6 +170,7 @@ inline int8_t get_s8(int8_t v) {
       assert(false);
       break;
   }
+  return int8_t(0);
 }
 
 template <JBLAS_SIGN_INT_TYPE S4_T>
@@ -533,6 +534,7 @@ inline float f4_dequantize(int8_t v, float scale) {
     default:
       break;
   }
+  return std::numeric_limits<float>::quiet_NaN();
 }
 
 template <JBLAS_F4_TYPE F4_T>
@@ -548,6 +550,7 @@ inline int8_t f4_quantize(float x) {
     default:
       break;
   }
+  return int8_t(0);
 }
 
 template <JBLAS_F4_TYPE F4_T>
@@ -882,6 +885,17 @@ static inline JBLAS_CODE broadcast_u8(int num, const uint8_t& srcval, uint8_t* d
   int i = 0;
   for (; i < num; i++) {
     dstptr[i] = srcval;
+  }
+  return JblasSuccess;
+}
+
+static inline JBLAS_CODE remove_zeropoint_bias(float* accptr, int ldacc, int row, int col, uint8_t* zps, float* scales,
+                                               int lds, const float* reduce) {
+  for (int i = 0; i < row; i++) {
+    auto zpf = float(zps[i * lds]) * scales[i * lds];
+    for (int j = 0; j < col; j++) {
+      accptr[i * ldacc + j] -= zpf * reduce[j];
+    }
   }
   return JblasSuccess;
 }
