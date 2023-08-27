@@ -1116,6 +1116,7 @@ class GemmInterfaceKBlockPackWeight {
   using Arguments = typename _Launcher_T::Param;
   using Config = typename _Launcher_T::ParallelConfig;
   using ActivationType = typename _Launcher_T::PrologueA;
+  using Epilogue = typename _Launcher_T::Epilogue;
   using WeightType = typename _Launcher_T::PrologueB;
   using GemmCore = typename _Launcher_T::GemmCore;
   using Parallel = _Parallel_T<GemmCore>;

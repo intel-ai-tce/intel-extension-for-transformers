@@ -52,28 +52,58 @@ void qbits_dequantize(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     decompress_kernel.unpackWeight(ctx->n, ctx->k, parse_wei, ctx->output->data_ptr<float>(), ctx->n);
 }
 
-template <class KERNEL, JBLAS_ISA ISA>
-void qbits_gemm(qbits_config_param* p, qbits_runtime_ctx* ctx) {
+template <typename T>
+concept quant_PrologueA = requires {
+  requires !std::is_same_v<T, float>;
+  requires !std::is_same_v<T, jblas::utils::bf16>;
+};
+
+template <typename T>
+concept normal_PrologueA = requires {
+  requires !std::is_same_v<T, int8_t>;
+  requires !std::is_same_v<T, uint8_t>;
+};
+
+template <class KERNEL, class ParamA, class ParamC>
+void do_compute(qbits_config_param* p, qbits_runtime_ctx* ctx, const ParamA param_a, const ParamC param_c) {
   static KERNEL gemm_kernel;
-  if (p->src_dt == QBITS_FP32 && p->dst_dt == QBITS_FP32) {
-    if constexpr (ISA != JblasAMX_INT8 && ISA != JblasAVX512_VNNI) {
-      gemm_kernel.compute({ctx->m, ctx->n, ctx->k, ctx->activation->data_ptr<float>(), ctx->lda, ctx->deseries_wei,
-                           ctx->output->data_ptr<float>(), ctx->bias->data_ptr<float>(), ctx->ldo, 0, ctx->alpha,
-                           ctx->beta, NULL});
-    } else {
-      auto quantA = gemm_kernel.getActivationPtr()->createStorage(
-          ctx->m, ctx->k, ctx->blocksize, NULL);  // TODO(zhe): pass by python user, config the workspace buffer & size.
-      gemm_kernel.compute({ctx->m, ctx->n, ctx->k, ctx->activation->data_ptr<float>(), ctx->lda, quantA,
-                           ctx->deseries_wei, ctx->output->data_ptr<float>(), ctx->bias->data_ptr<float>(), ctx->ldo, 0,
-                           ctx->alpha, ctx->beta, NULL});
-      delete quantA;
-    }
-    return;
-  }
-  TORCH_CHECK(false, "unsupported src & dst data_type combination.")
+  gemm_kernel.compute({ctx->m, ctx->n, ctx->k, param_a, ctx->deseries_wei, param_c});
 }
 
-template <QBITS_TASK TASK, class KERNEL, JBLAS_ISA ISA>
+template <class KERNEL, class ParamA>
+void parse_paramC(qbits_config_param* p, qbits_runtime_ctx* ctx, ParamA param_a) {
+  using ParamC = typename KERNEL::Epilogue::Param;
+  ParamC param_c = {ctx->output->data_ptr<float>(), ctx->bias->data_ptr<float>(), ctx->ldo, 0, ctx->alpha, ctx->beta};
+  return do_compute<KERNEL, ParamA, ParamC>(p, ctx, param_a, param_c);
+}
+
+template <class KERNEL>
+  requires quant_PrologueA<typename KERNEL::ActivationType::AType>
+void parse_paramA(qbits_config_param* p, qbits_runtime_ctx* ctx) {
+  static KERNEL gemm_kernel;
+  using PrologueA = typename KERNEL::ActivationType;
+  auto quantA = gemm_kernel.getActivationPtr()->createStorage(
+      ctx->m, ctx->k, ctx->blocksize, NULL);  // TODO(zhe): pass by python user, config the workspace buffer & size.
+  using ParamA = typename PrologueA::Param;
+  ParamA param_a = {ctx->activation->data_ptr<float>(), ctx->lda, quantA};
+  return parse_paramC<KERNEL, ParamA>(p, ctx, param_a);
+}
+
+template <class KERNEL>
+  requires normal_PrologueA<typename KERNEL::ActivationType::AType>
+void parse_paramA(qbits_config_param* p, qbits_runtime_ctx* ctx) {
+  using PrologueA = typename KERNEL::ActivationType;
+  using ParamA = typename PrologueA::Param;
+  ParamA param_a = {ctx->activation->data_ptr<float>(), ctx->lda};
+  return parse_paramC<KERNEL, ParamA>(p, ctx, param_a);
+}
+
+template <class KERNEL>
+void qbits_gemm(qbits_config_param* p, qbits_runtime_ctx* ctx) {
+  return parse_paramA<KERNEL>(p, ctx);
+}
+
+template <QBITS_TASK TASK, class KERNEL>
 void execute_task(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   switch (TASK) {
     case QBITS_QUANTIZE:
@@ -81,7 +111,7 @@ void execute_task(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     case QBITS_DEQUANTIZE:
       return qbits_dequantize<KERNEL>(p, ctx);
     case QBITS_LINEAR:
-      return qbits_gemm<KERNEL, ISA>(p, ctx);
+      return qbits_gemm<KERNEL>(p, ctx);
   }
 }
 
@@ -90,8 +120,8 @@ template <QBITS_TASK TASK, INTERFACE_TEMPLATE, LAUNCHER_TEMPLATE, class Gemmcore
 void parse_store(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   if (p->dst_dt == QBITS_FP32) {
     using namespace jblas::epilogue::gemm;
-    return execute_task<TASK, Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, AlphaBetaProcessFp32>, Parallel>,
-                        ISA>(p, ctx);
+    return execute_task<TASK, Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, AlphaBetaProcessFp32>, Parallel>>(
+        p, ctx);
   }
   TORCH_CHECK(false, "unsupported dst data type.");
 }

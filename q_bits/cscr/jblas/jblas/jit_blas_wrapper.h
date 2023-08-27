@@ -122,7 +122,9 @@ class GemmInterfacePackWeight {
   using Arguments = typename _Launcher_T::Param;
   using Config = typename _Launcher_T::ParallelConfig;
   using WeightType = typename _Launcher_T::PrologueB;
+  using ActivationType = typename _Launcher_T::PrologueA;
   using GemmCore = typename _Launcher_T::GemmCore;
+  using Epilogue = typename _Launcher_T::Epilogue;
   using Parallel = _Parallel_T<GemmCore>;
 
   GemmInterfacePackWeight() {}
