@@ -1,5 +1,9 @@
 #include "jblas_task_dispatcher.hpp"
-#include <ATen/core/interned_strings.h>
+#include <ATen/core/TensorBody.h>
+#include <c10/util/Exception.h>
+#include <cassert>
+#include <cstdint>
+#include <string>
 #include "jblas/jit_blas.h"
 #include "jblas/jit_blas_gemm.h"
 #include "jblas/jit_blas_prologue.h"
@@ -17,6 +21,9 @@ class env_initer {
   env_initer() { jblas::utils::request_perm_xtile_data(); }
 };
 static env_initer initer;
+
+static void* jblas_workspace = nullptr;
+static int64_t workspace_size = 0;
 
 inline bool check_amx() { return jblas::utils::parallel::CpuDevice::getInstance()->AMX_BF16(); }
 inline bool check_vnni() { return jblas::utils::parallel::CpuDevice::getInstance()->AVX_VNNI(); }
@@ -91,8 +98,14 @@ void parse_paramA(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   }
   if constexpr (quant_PrologueA<typename KERNEL::ActivationType::AType>) {
     static KERNEL gemm_kernel;
-    auto quantA = gemm_kernel.getActivationPtr()->createStorage(
-        ctx->m, ctx->k, ctx->blocksize, NULL);  // TODO(zhe): pass by python user, config the workspace buffer & size.
+    void* workspace = jblas_workspace == nullptr ? NULL : jblas_workspace;
+    if (workspace != NULL) {
+      auto need_size = PrologueA::QParam::getSize(ctx->m, ctx->k, ctx->blocksize);
+      TORCH_CHECK(workspace_size >= need_size,
+                  "workspace size should large than " + std::to_string(need_size) + " bytes");
+    }
+    auto quantA = gemm_kernel.getActivationPtr()->createStorage(ctx->m, ctx->k, ctx->blocksize,
+                                                                reinterpret_cast<int8_t*>(workspace));
     ParamA param_a = {ctx->activation->data_ptr<float>(), ctx->lda, quantA};
     parse_paramC<KERNEL, ParamA>(p, ctx, param_a);
     delete quantA;
@@ -293,4 +306,9 @@ void task_dispatcher(qbits_config_param* p, qbits_runtime_ctx* ctx, QBITS_TASK t
   if (task == QBITS_QUANTIZE) return parse_gemm_core<QBITS_QUANTIZE>(p, ctx);
   if (task == QBITS_DEQUANTIZE) return parse_gemm_core<QBITS_DEQUANTIZE>(p, ctx);
   if (task == QBITS_LINEAR) return parse_gemm_core<QBITS_LINEAR>(p, ctx);
+}
+
+void set_jblas_workspace(torch::Tensor* workspace) {
+  jblas_workspace = workspace->data_ptr();
+  workspace_size = workspace->element_size();
 }

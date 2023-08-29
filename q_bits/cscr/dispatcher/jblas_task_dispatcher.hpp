@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ATen/core/TensorBody.h>
 #include <torch/torch.h>
 #include "jblas/jit_blas_weight_compression.h"
 #include <string.h>
@@ -34,3 +35,4 @@ struct qbits_runtime_ctx {
 };
 
 void task_dispatcher(qbits_config_param* p, qbits_runtime_ctx* ctx, QBITS_TASK task);
+void set_jblas_workspace(torch::Tensor* workspace);
