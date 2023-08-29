@@ -2,6 +2,9 @@
 
 #include <torch/torch.h>
 #include "jblas/jit_blas_weight_compression.h"
+#include <string.h>
+#include <assert.h>
+#include <iostream>
 
 enum QBITS_TASK {
   QBITS_QUANTIZE,

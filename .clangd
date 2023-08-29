@@ -1,0 +1,9 @@
+Diagnostics:
+  Suppress: [attribute_wrong_number_arguments, builtin_definition]
+CompileFlags:
+  Add: -fgnuc-version=12.2.0
+InlayHints:
+  Designators: Yes
+  Enabled: Yes
+  ParameterNames: Yes
+  DeducedTypes: Yes

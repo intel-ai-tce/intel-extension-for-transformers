@@ -1,4 +1,6 @@
 #include "jblas_task_dispatcher.hpp"
+#include "jblas/jit_blas.h"
+#include "jblas/jit_blas_prologue.h"
 
 #define INTERFACE_TEMPLATE                                            \
   template <class _Launcher_T, template <class _T> class _Parallel_T> \
@@ -78,24 +80,20 @@ void parse_paramC(qbits_config_param* p, qbits_runtime_ctx* ctx, ParamA param_a)
 }
 
 template <class KERNEL>
-  requires quant_PrologueA<typename KERNEL::ActivationType::AType>
-void parse_paramA(qbits_config_param* p, qbits_runtime_ctx* ctx) {
-  static KERNEL gemm_kernel;
-  using PrologueA = typename KERNEL::ActivationType;
-  auto quantA = gemm_kernel.getActivationPtr()->createStorage(
-      ctx->m, ctx->k, ctx->blocksize, NULL);  // TODO(zhe): pass by python user, config the workspace buffer & size.
-  using ParamA = typename PrologueA::Param;
-  ParamA param_a = {ctx->activation->data_ptr<float>(), ctx->lda, quantA};
-  return parse_paramC<KERNEL, ParamA>(p, ctx, param_a);
-}
-
-template <class KERNEL>
-  requires normal_PrologueA<typename KERNEL::ActivationType::AType>
 void parse_paramA(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   using PrologueA = typename KERNEL::ActivationType;
   using ParamA = typename PrologueA::Param;
-  ParamA param_a = {ctx->activation->data_ptr<float>(), ctx->lda};
-  return parse_paramC<KERNEL, ParamA>(p, ctx, param_a);
+  if constexpr (normal_PrologueA<typename KERNEL::ActivationType::AType>) {
+    ParamA param_a = {ctx->activation->data_ptr<float>(), ctx->lda};
+    return parse_paramC<KERNEL, ParamA>(p, ctx, param_a);
+  }
+  if constexpr (quant_PrologueA<typename KERNEL::ActivationType::AType>) {
+    static KERNEL gemm_kernel;
+    auto quantA = gemm_kernel.getActivationPtr()->createStorage(
+        ctx->m, ctx->k, ctx->blocksize, NULL);  // TODO(zhe): pass by python user, config the workspace buffer & size.
+    ParamA param_a = {ctx->activation->data_ptr<float>(), ctx->lda, quantA};
+    return parse_paramC<KERNEL, ParamA>(p, ctx, param_a);
+  }
 }
 
 template <class KERNEL>
