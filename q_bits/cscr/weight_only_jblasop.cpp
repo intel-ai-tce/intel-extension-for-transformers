@@ -1,5 +1,7 @@
+#include <c10/util/Exception.h>
 #include <torch/script.h>
 #include <torch/torch.h>
+#include <torch/types.h>
 #include "dispatcher/jblas_task_dispatcher.hpp"
 
 template <QBITS_DT SRC_DT, QBITS_DT DST_DT>
@@ -30,12 +32,15 @@ static void qbits_dequantize(const torch::Tensor& compressed_weight, torch::Tens
   task_dispatcher(&p, &ctx, QBITS_DEQUANTIZE);
 }
 
-static void qbits_f32in_f32out_linear_with_bias(const torch::Tensor& activation, const torch::Tensor& weight,
-                                                const torch::Tensor& bias, torch::Tensor& output, int64_t lda,
-                                                int64_t ldo, const std::string& compute_type,
-                                                const std::string& weight_type) {
+static void qbits_linear_with_bias(const torch::Tensor& activation, const torch::Tensor& weight,
+                                   const torch::Tensor& bias, torch::Tensor& output, int64_t lda, int64_t ldo,
+                                   const std::string& compute_type, const std::string& weight_type) {
   qbits_config_param p;
-  init_qbits_config_param<QBITS_FP32, QBITS_FP32>(&p, compute_type, weight_type);
+  if (activation.scalar_type() == torch::kFloat32 && output.scalar_type() == torch::kFloat32) {
+    init_qbits_config_param<QBITS_FP32, QBITS_FP32>(&p, compute_type, weight_type);
+  } else {
+    TORCH_CHECK(false, "unsupported activation & output data type combination in qbits_linear_with_bias");
+  }
   qbits_runtime_ctx ctx{
       const_cast<torch::Tensor*>(&activation),
       const_cast<torch::Tensor*>(&weight),
@@ -52,11 +57,15 @@ static void qbits_f32in_f32out_linear_with_bias(const torch::Tensor& activation,
   task_dispatcher(&p, &ctx, QBITS_LINEAR);
 }
 
-static void qbits_f32in_f32out_linear_without_bias(const torch::Tensor& activation, const torch::Tensor& weight,
-                                                   torch::Tensor& output, int64_t n, int64_t lda, int64_t ldo,
-                                                   const std::string& compute_type, const std::string& weight_type) {
+static void qbits_linear_without_bias(const torch::Tensor& activation, const torch::Tensor& weight,
+                                      torch::Tensor& output, int64_t n, int64_t lda, int64_t ldo,
+                                      const std::string& compute_type, const std::string& weight_type) {
   qbits_config_param p;
-  init_qbits_config_param<QBITS_FP32, QBITS_FP32>(&p, compute_type, weight_type);
+  if (activation.scalar_type() == torch::kFloat32 && output.scalar_type() == torch::kFloat32) {
+    init_qbits_config_param<QBITS_FP32, QBITS_FP32>(&p, compute_type, weight_type);
+  } else {
+    TORCH_CHECK(false, "unsupported activation & output data type combination in qbits_linear_without_bias");
+  }
   qbits_runtime_ctx ctx{
       const_cast<torch::Tensor*>(&activation),
       const_cast<torch::Tensor*>(&weight),
@@ -75,7 +84,7 @@ static void qbits_f32in_f32out_linear_without_bias(const torch::Tensor& activati
 
 TORCH_LIBRARY(weight_only_jblasop, m) {
   m.def("qbits_quantize", &qbits_quantize);
-  m.def("qbits_f32in_f32out_linear_with_bias", &qbits_f32in_f32out_linear_with_bias);
-  m.def("qbits_f32in_f32out_linear_without_bias", &qbits_f32in_f32out_linear_without_bias);
+  m.def("qbits_linear_with_bias", &qbits_linear_with_bias);
+  m.def("qbits_linear_without_bias", &qbits_linear_without_bias);
   m.def("qbits_dequantize", &qbits_dequantize);
 }

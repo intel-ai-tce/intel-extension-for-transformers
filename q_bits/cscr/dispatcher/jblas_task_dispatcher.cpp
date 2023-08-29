@@ -1,5 +1,7 @@
 #include "jblas_task_dispatcher.hpp"
+#include <ATen/core/interned_strings.h>
 #include "jblas/jit_blas.h"
+#include "jblas/jit_blas_gemm.h"
 #include "jblas/jit_blas_prologue.h"
 
 #define INTERFACE_TEMPLATE                                            \
@@ -92,7 +94,8 @@ void parse_paramA(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     auto quantA = gemm_kernel.getActivationPtr()->createStorage(
         ctx->m, ctx->k, ctx->blocksize, NULL);  // TODO(zhe): pass by python user, config the workspace buffer & size.
     ParamA param_a = {ctx->activation->data_ptr<float>(), ctx->lda, quantA};
-    return parse_paramC<KERNEL, ParamA>(p, ctx, param_a);
+    parse_paramC<KERNEL, ParamA>(p, ctx, param_a);
+    delete quantA;
   }
 }
 
@@ -128,22 +131,24 @@ template <QBITS_TASK TASK, INTERFACE_TEMPLATE, LAUNCHER_TEMPLATE, class Gemmcore
           JBLAS_ISA ISA, template <class _T, JBLAS_ISA> class PrologueB>
 void parse_activation(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   using namespace jblas::prologue::gemm;
-  if (p->compute_type == "int8" && p->src_dt == QBITS_FP32) {
-    if constexpr (ISA == JblasAMX_INT8)
-      return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationF32S8KBlockQuantize>(
-          p, ctx);
-    if constexpr (ISA == JblasAVX512_VNNI)
-      return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationF32U8KBlockQuantize>(
-          p, ctx);
-  }
-  if (p->compute_type == "fp32") {
-    if constexpr (ISA == JblasAVX512F)
-      return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationBase>(p, ctx);
-  }
-  if (p->compute_type == "bf16") {
-    if constexpr (ISA == JblasAMX_BF16)
-      return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationConverterFp32>(p,
-                                                                                                                 ctx);
+  if (p->src_dt == QBITS_FP32) {
+    if (p->compute_type == "int8") {
+      if constexpr (ISA == JblasAMX_INT8)
+        return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB,
+                           ActivationF32S8KBlockQuantize>(p, ctx);
+      if constexpr (ISA == JblasAVX512_VNNI)
+        return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB,
+                           ActivationF32U8KBlockQuantize>(p, ctx);
+    }
+    if (p->compute_type == "fp32") {
+      if constexpr (ISA == JblasAVX512F)
+        return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationBase>(p, ctx);
+    }
+    if (p->compute_type == "bf16") {
+      if constexpr (ISA == JblasAMX_BF16)
+        return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationConverterFp32>(p,
+                                                                                                                   ctx);
+    }
   }
   TORCH_CHECK(false, "unsupported src data type.");
 }
@@ -181,24 +186,26 @@ template <QBITS_TASK TASK>
 void parse_gemm_core_online(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   if (p->compute_type == "int8") {
     if (check_amx()) {
-      if (ctx->blocksize % 128 == 0)
+      if (ctx->blocksize % (jblas::gemm::GemmCore_Row_NN_16x48_AMX_INT8::KTILE * 2) == 0)
         return parse_weight<TASK, jblas::wrapper::gemm_kblock::GemmInterfaceKBlockPackWeight,
                             jblas::wrapper::gemm_kblock::GemmSLauncherKBlockPackWeight,
                             jblas::gemm::kblock::GemmCore_Row_NN_16x48_AMX_INT8_KBLOCK,
                             jblas::utils::parallel::Parallel2DGemmKBlockFixed, JblasAMX_INT8>(p, ctx);
-      else
+      else if (ctx->blocksize % (jblas::gemm::kblock::GemmCore_Row_NN_3x48_AVX512_VNNI_KBLOCK::KTILE * 2) == 0)
         return parse_weight<TASK, jblas::wrapper::gemm_kblock::GemmInterfaceKBlockPackWeight,
                             jblas::wrapper::gemm_kblock::GemmSLauncherKBlockPackWeight,
                             jblas::gemm::kblock::GemmCore_Row_NN_3x48_AVX512_VNNI_KBLOCK,
                             jblas::utils::parallel::Parallel2DGemmKBlockFixed, JblasAVX512_VNNI>(p, ctx);
     }
-    if (check_vnni()) {
+    if (check_vnni() &&
+        ctx->blocksize % (jblas::gemm::kblock::GemmCore_Row_NN_3x48_AVX512_VNNI_KBLOCK::KTILE * 2) == 0) {
       return parse_weight<TASK, jblas::wrapper::gemm_kblock::GemmInterfaceKBlockPackWeight,
                           jblas::wrapper::gemm_kblock::GemmSLauncherKBlockPackWeight,
                           jblas::gemm::kblock::GemmCore_Row_NN_3x48_AVX512_VNNI_KBLOCK,
                           jblas::utils::parallel::Parallel2DGemmKBlockFixed, JblasAVX512_VNNI>(p, ctx);
     }
-    TORCH_CHECK(false, "device ISA must lagger than VNNI when compute_type==int8");
+    TORCH_CHECK(false, "Illegal config in int8 compute_type: blocksize:", ctx->blocksize,
+                " ISA largger than vnni:", check_vnni());
   }
   if (p->compute_type == "fp32") {
     if (check_avx512f()) {
