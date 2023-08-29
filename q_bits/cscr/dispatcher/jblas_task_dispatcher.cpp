@@ -1,3 +1,16 @@
+//  Copyright (c) 2023 Intel Corporation
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
 #include "jblas_task_dispatcher.hpp"
 #include <ATen/core/TensorBody.h>
 #include <c10/util/Exception.h>
@@ -310,5 +323,5 @@ void task_dispatcher(qbits_config_param* p, qbits_runtime_ctx* ctx, QBITS_TASK t
 
 void set_jblas_workspace(torch::Tensor* workspace) {
   jblas_workspace = workspace->data_ptr();
-  workspace_size = workspace->element_size();
+  workspace_size = workspace->element_size() * workspace->numel();
 }

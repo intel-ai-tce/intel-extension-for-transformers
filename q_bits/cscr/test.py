@@ -1,3 +1,19 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2023 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import torch
 import inspect
 from functools import wraps
@@ -66,10 +82,13 @@ blocksizes = [8, 12, 64]
 do_trans = [False, True]
 add_bias = [False, True]
 
+workspace = torch.zeros(256*512*2, dtype=torch.int8)
+torch.ops.weight_only_jblasop.qbits_set_weightonly_workspace(workspace)
+
 for weight_type in configs:
     m = 255
     n = 1023
-    k = 256 # contain unalign calc error bug currently. 
+    k = 256  # contain unalign calc error bug currently.
     for compute_type in configs[weight_type]:
         for blocksize in blocksizes:
             if compute_type == "int8" and blocksize % 8 != 0:
