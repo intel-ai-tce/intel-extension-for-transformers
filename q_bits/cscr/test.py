@@ -43,10 +43,10 @@ def test_fp32in_fp32out(m, n, k, blocksize, compute_type, weight_type, transpose
         revert_wei = torch.transpose(revert_wei, 0, 1)
     ref_dst = torch.matmul(activation, revert_wei)
     if add_bias:
-        torch.ops.weight_only_jblasop.qbits_f32in_f32out_linear_with_bias(
+        torch.ops.weight_only_jblasop.qbits_linear_with_bias(
             activation, compress_wei, bias, tar_dst, k, n, compute_type, weight_type)
     else:
-        torch.ops.weight_only_jblasop.qbits_f32in_f32out_linear_without_bias(
+        torch.ops.weight_only_jblasop.qbits_linear_without_bias(
             activation, compress_wei, tar_dst, n, k, n, compute_type, weight_type)
     if add_bias:
         ref_dst += bias

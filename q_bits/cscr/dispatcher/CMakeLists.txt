@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(jblas_dispatcher LANGUAGES C CXX)
-set(CMAKE_CXX_FLAGS "-O3 -fPIC -Wno-narrowing -std=c++20")
+set(CMAKE_CXX_FLAGS "-O3 -fPIC -Wno-narrowing -fconcepts")
 file(GLOB SOURCES 
     ${PROJECT_SOURCE_DIR}/*.cpp
 )
