@@ -126,8 +126,20 @@ void parse_paramC(qbits_config_param* p, qbits_runtime_ctx* ctx, ParamA param_a)
     ParamC param_c = {ctx->output->data_ptr<float>(), ctx->bias->data_ptr<float>(), ctx->ldo, 0, ctx->alpha, ctx->beta};
     return do_compute<KERNEL, ParamA, ParamC>(p, ctx, param_a, param_c);
   } else {
-    ParamC param_c = {ctx->output->data_ptr<float>()};
-    return do_compute<KERNEL, ParamA, ParamC>(p, ctx, param_a, param_c);
+    if constexpr (std::is_same_v<typename KERNEL::GemmCore, jblas::gemm::GemmCore_Row_NN_16x48_AMX_S8S8>) {
+      ParamC param_c = {ctx->output->data_ptr<float>(), ctx->ldo, param_a.Q->mSPtr, param_a.Q->lds,
+                        dynamic_cast<typename KERNEL::WeightType::StorageWeight*>(ctx->deseries_wei)->mSPtr};
+      return do_compute<KERNEL, ParamA, ParamC>(p, ctx, param_a, param_c);
+    }
+    if constexpr (std::is_same_v<typename KERNEL::GemmCore, jblas::gemm::GemmCore_Row_NN_8x48_AVX512_VNNI>) {
+      ParamC param_c = {ctx->output->data_ptr<float>(),
+                        ctx->ldo,
+                        param_a.Q->mZPtr,
+                        param_a.Q->mSPtr,
+                        param_a.Q->lds,
+                        dynamic_cast<typename KERNEL::WeightType::StorageWeight*>(ctx->deseries_wei)->mSPtr};
+      return do_compute<KERNEL, ParamA, ParamC>(p, ctx, param_a, param_c);
+    }
   }
 }
 
@@ -185,10 +197,14 @@ void parse_store(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   if (p->dst_dt == QBITS_FP32) {
     using namespace jblas::epilogue::gemm;
     if constexpr (perchannel_Gemmcore<Gemmcore>) {
-      return execute_task<TASK,
-                          Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, ZpDequantInt32ToFp32>, Parallel>>(
-          p, ctx);
-
+      if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_8x48_AVX512_VNNI>)
+        return execute_task<TASK,
+                            Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, ZpDequantInt32ToFp32>, Parallel>>(
+            p, ctx);
+      if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_16x48_AMX_S8S8>)
+        return execute_task<TASK,
+                            Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, DequantInt32ToFp32>, Parallel>>(
+            p, ctx);
     } else {
       return execute_task<TASK,
                           Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, AlphaBetaProcessFp32>, Parallel>>(
@@ -214,9 +230,14 @@ void parse_activation(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_16x64_AMX_BF16>)
       return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationConverterFp32>(p,
                                                                                                                  ctx);
-    if constexpr (perchannel_Gemmcore<Gemmcore>)
-      return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationFp32AsymU8Quantize>(
-          p, ctx);
+    if constexpr (perchannel_Gemmcore<Gemmcore>) {
+      if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_16x48_AMX_S8S8>)
+        return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationFp32SymS8Quantize>(
+            p, ctx);
+      if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_8x48_AVX512_VNNI>)
+        return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationFp32AsymU8Quantize>(
+            p, ctx);
+    }
   }
   TORCH_CHECK(false, "unsupported src data type.");
 }
@@ -370,7 +391,7 @@ void parse_gemm_core_offline(qbits_config_param* p, qbits_runtime_ctx* ctx) {
                             JblasAVX512_VNNI>(p, ctx);
       TORCH_CHECK(false, "device ISA must lagger than AVX512_VNNI when GemmCore==Row_NN_8x48_AVX512_VNNI");
       break;
-    case jblas::gemm::GemmCoreType::AMX_INT8_16x48_SS:
+    case jblas::gemm::GemmCoreType::AMX_INT8_16x48:
       if (check_amx())
         return parse_weight<TASK, jblas::wrapper::gemm_pack_weight::GemmInterfaceParallelAB,
                             jblas::wrapper::gemm_pack_weight::GemmLauncherPackWeight,
