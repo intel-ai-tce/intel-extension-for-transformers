@@ -212,7 +212,7 @@ template <QBITS_TASK TASK>
 void parse_gemm_core_online(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   if (p->compute_type == "int8") {
     if (check_amx()) {
-      if (ctx->blocksize % (jblas::gemm::GemmCore_Row_NN_16x48_AMX_INT8::KTILE * 2) == 0)
+      if (ctx->blocksize % (jblas::gemm::kblock::GemmCore_Row_NN_16x48_AMX_INT8_KBLOCK::KTILE * 2) == 0)
         return parse_weight<TASK, jblas::wrapper::gemm_kblock::GemmInterfaceKBlockPackWeight,
                             jblas::wrapper::gemm_kblock::GemmSLauncherKBlockPackWeight,
                             jblas::gemm::kblock::GemmCore_Row_NN_16x48_AMX_INT8_KBLOCK,
