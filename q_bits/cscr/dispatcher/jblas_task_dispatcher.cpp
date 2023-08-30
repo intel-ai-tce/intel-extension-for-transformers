@@ -17,9 +17,11 @@
 #include <cassert>
 #include <cstdint>
 #include <string>
+#include <type_traits>
 #include "jblas/jit_blas.h"
 #include "jblas/jit_blas_gemm.h"
 #include "jblas/jit_blas_prologue.h"
+#include "jblas/jit_blas_weight_compression.h"
 
 #define INTERFACE_TEMPLATE                                            \
   template <class _Launcher_T, template <class _T> class _Parallel_T> \
@@ -158,23 +160,17 @@ template <QBITS_TASK TASK, INTERFACE_TEMPLATE, LAUNCHER_TEMPLATE, class Gemmcore
 void parse_activation(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   using namespace jblas::prologue::gemm;
   if (p->src_dt == QBITS_FP32) {
-    if (p->compute_type == "int8") {
-      if constexpr (ISA == JblasAMX_INT8)
-        return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB,
-                           ActivationF32S8KBlockQuantize>(p, ctx);
-      if constexpr (ISA == JblasAVX512_VNNI)
-        return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB,
-                           ActivationF32U8KBlockQuantize>(p, ctx);
-    }
-    if (p->compute_type == "fp32") {
-      if constexpr (ISA == JblasAVX512F)
-        return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationBase>(p, ctx);
-    }
-    if (p->compute_type == "bf16") {
-      if constexpr (ISA == JblasAMX_BF16)
-        return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationConverterFp32>(p,
-                                                                                                                   ctx);
-    }
+    if constexpr (std::is_same_v<Gemmcore, jblas::gemm::kblock::GemmCore_Row_NN_16x48_AMX_INT8_KBLOCK>)
+      return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationF32S8KBlockQuantize>(
+          p, ctx);
+    if constexpr (std::is_same_v<Gemmcore, jblas::gemm::kblock::GemmCore_Row_NN_3x48_AVX512_VNNI_KBLOCK>)
+      return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationF32U8KBlockQuantize>(
+          p, ctx);
+    if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_8x48_AVX512F>)
+      return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationBase>(p, ctx);
+    if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_16x64_AMX_BF16>)
+      return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationConverterFp32>(p,
+                                                                                                                 ctx);
   }
   TORCH_CHECK(false, "unsupported src data type.");
 }
@@ -184,7 +180,12 @@ template <QBITS_TASK TASK, INTERFACE_TEMPLATE, LAUNCHER_TEMPLATE, class Gemmcore
 void parse_weight(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   using namespace jblas::prologue::weight_comp::gemm_kblcok;
   if (p->weight_type == "s8_scalef32") {
-    if constexpr (ISA != JblasAMX_BF16)
+    if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_8x48_AVX512_VNNI> ||
+                  std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_16x48_AMX_S8S8>)
+      return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightS8ScaleFp32PerChannelN>(p, ctx);
+
+    if constexpr (std::is_same_v<Gemmcore, jblas::gemm::kblock::GemmCore_Row_NN_16x48_AMX_INT8_KBLOCK> ||
+                  std::is_same_v<Gemmcore, jblas::gemm::kblock::GemmCore_Row_NN_3x48_AVX512_VNNI_KBLOCK>)
       return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightS8ScaleFp32>(p, ctx);
   }
   if (p->weight_type == "s4clip_scalef32") {
@@ -194,15 +195,18 @@ void parse_weight(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightS4FullRangeScaleFp32>(p, ctx);
   }
   if (p->weight_type == "fp4bnb_scalef32") {
-    if constexpr (ISA != JblasAMX_INT8 && ISA != JblasAVX512_VNNI)
+    if constexpr (!std::is_same_v<Gemmcore, jblas::gemm::kblock::GemmCore_Row_NN_16x48_AMX_INT8_KBLOCK> &&
+                  !std::is_same_v<Gemmcore, jblas::gemm::kblock::GemmCore_Row_NN_3x48_AVX512_VNNI_KBLOCK>)
       return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightFp4BnbScaleFp32>(p, ctx);
   }
   if (p->weight_type == "fp4e2m1_scalef32") {
-    if constexpr (ISA != JblasAMX_INT8 && ISA != JblasAVX512_VNNI)
+    if constexpr (!std::is_same_v<Gemmcore, jblas::gemm::kblock::GemmCore_Row_NN_16x48_AMX_INT8_KBLOCK> &&
+                  !std::is_same_v<Gemmcore, jblas::gemm::kblock::GemmCore_Row_NN_3x48_AVX512_VNNI_KBLOCK>)
       return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightFp4E2M1ScaleFp32>(p, ctx);
   }
   if (p->weight_type == "nf4_scalef32") {
-    if constexpr (ISA != JblasAMX_INT8 && ISA != JblasAVX512_VNNI)
+    if constexpr (!std::is_same_v<Gemmcore, jblas::gemm::kblock::GemmCore_Row_NN_16x48_AMX_INT8_KBLOCK> &&
+                  !std::is_same_v<Gemmcore, jblas::gemm::kblock::GemmCore_Row_NN_3x48_AVX512_VNNI_KBLOCK>)
       return parse_activation<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, WeightNf4ScaleFp32>(p, ctx);
   }
   TORCH_CHECK(false, "unsupported jblas_config, compute_type==" + p->compute_type + " weight_type==" + p->weight_type);
