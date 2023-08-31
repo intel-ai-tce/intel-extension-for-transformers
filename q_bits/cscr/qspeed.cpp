@@ -18,7 +18,7 @@
 #include <torch/torch.h>
 #include <torch/types.h>
 #include <map>
-#include "dispatcher/jblas_task_dispatcher.hpp"
+#include "dispatcher/include/jblas_weightonly_dispatcher.hpp"
 
 static std::map<torch::ScalarType, QBITS_DT> qbits_dt_map{{torch::kFloat32, QBITS_FP32}};
 static QBITS_DT get_qbits_dt(torch::Tensor* tensor) {

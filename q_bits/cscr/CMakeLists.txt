@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
-project(weight_only_jblasop LANGUAGES C CXX)
+project(QSpeed LANGUAGES C CXX)
 
 # set(CMAKE_CXX_FLAGS "-g -O0 -Wno-narrowing")
 set(CMAKE_CXX_FLAGS "-O3")
@@ -25,12 +25,12 @@ NO_DEFAULT_PATH)
 
 add_subdirectory(dispatcher)
 
-file(GLOB custom_jblasop_src ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+file(GLOB qspeed_src ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 # Define our library target
-add_library(weight_only_jblasop SHARED ${custom_jblasop_src})
+add_library(QSpeed SHARED ${qspeed_src})
 # Enable C++14
-target_compile_features(weight_only_jblasop PRIVATE cxx_std_14)
+target_compile_features(QSpeed PRIVATE cxx_std_14)
 
 # Link against LibTorch
-target_link_libraries(weight_only_jblasop jblas_dispatcher)
+target_link_libraries(QSpeed jblas_dispatcher)
 # set_property(TARGET torch_cpu PROPERTY INTERFACE_COMPILE_OPTIONS "")

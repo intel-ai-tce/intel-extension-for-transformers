@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(jblas_dispatcher LANGUAGES C CXX)
 # set(CMAKE_CXX_FLAGS "-O3 -fPIC -Wno-narrowing -fconcepts")
-set(CMAKE_CXX_FLAGS "-O3 -fPIC -Wno-narrowing -fpermissive -std=c++20")
+set(CMAKE_CXX_FLAGS "-O3 -fPIC -Wno-narrowing -std=c++20")
 file(GLOB SOURCES 
-    ${PROJECT_SOURCE_DIR}/*.cpp
+    ${PROJECT_SOURCE_DIR}/src/*.cpp
 )
 file(GLOB HEADERS 
-    ${PROJECT_SOURCE_DIR}/*.hpp
+    ${PROJECT_SOURCE_DIR}/include/*.hpp
 )
 
 add_subdirectory(../jblas jblas_out)

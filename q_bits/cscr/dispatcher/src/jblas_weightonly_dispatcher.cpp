@@ -11,7 +11,7 @@
 //  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
-#include "jblas_task_dispatcher.hpp"
+#include "../include/jblas_weightonly_dispatcher.hpp"
 #include <ATen/core/TensorBody.h>
 #include <c10/util/Exception.h>
 #include <cassert>

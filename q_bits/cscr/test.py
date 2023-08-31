@@ -17,7 +17,7 @@
 import torch
 import inspect
 from functools import wraps
-torch.ops.load_library("build/libweight_only_jblasop.so")
+torch.ops.load_library("build/libQSpeed.so")
 
 
 def capture_args(f):
