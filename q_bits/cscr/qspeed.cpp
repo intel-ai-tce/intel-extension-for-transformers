@@ -13,6 +13,7 @@
 //  limitations under the License.
 #include <ATen/core/TensorBody.h>
 #include <c10/core/ScalarType.h>
+#include <c10/util/BFloat16.h>
 #include <c10/util/Exception.h>
 #include <torch/script.h>
 #include <torch/torch.h>
@@ -20,7 +21,8 @@
 #include <map>
 #include "dispatcher/include/jblas_weightonly_dispatcher.hpp"
 
-static std::map<torch::ScalarType, QBITS_DT> qbits_dt_map{{torch::kFloat32, QBITS_FP32}};
+static std::map<torch::ScalarType, QBITS_DT> qbits_dt_map{{torch::kFloat32, QBITS_FP32},
+                                                          {torch::kBFloat16, QBITS_BF16}};
 static QBITS_DT get_qbits_dt(torch::Tensor* tensor) {
   TORCH_CHECK(qbits_dt_map.count(tensor->scalar_type()) != 0, "unsupported qbits data type.");
   return qbits_dt_map[tensor->scalar_type()];
