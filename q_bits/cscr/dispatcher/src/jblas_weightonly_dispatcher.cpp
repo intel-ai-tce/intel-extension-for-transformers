@@ -124,7 +124,7 @@ template <class KERNEL, class ParamA>
 void parse_paramC(qbits_config_param* p, qbits_runtime_ctx* ctx, ParamA param_a) {
   using ParamC = typename KERNEL::Epilogue::Param;
   if constexpr (!perchannel_Gemmcore<typename KERNEL::GemmCore>) {
-    ParamC param_c = {ctx->output->data_ptr<float>(), ctx->bias->data_ptr<float>(), ctx->ldo, 0, ctx->alpha, ctx->beta};
+    ParamC param_c = {ctx->output->data_ptr(), ctx->bias->data_ptr(), ctx->ldo, 0, ctx->alpha, ctx->beta};
     return do_compute<KERNEL, ParamA, ParamC>(p, ctx, param_a, param_c);
   } else {
     if constexpr (std::is_same_v<typename KERNEL::GemmCore, jblas::gemm::GemmCore_Row_NN_16x48_AMX_S8S8>) {
@@ -219,9 +219,8 @@ void parse_store(qbits_config_param* p, qbits_runtime_ctx* ctx) {
             TASK, Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, DequantInt32AlphaBetaStoreFp32>, Parallel>>(
             p, ctx);
     } else {
-      return execute_task<TASK,
-                          Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, AlphaBetaProcessFp32>, Parallel>>(
-          p, ctx);
+      return execute_task<
+          TASK, Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, AlphaBetaProcessStoreFp32>, Parallel>>(p, ctx);
     }
   }
   if (p->dst_dt == QBITS_BF16) {
@@ -234,6 +233,9 @@ void parse_store(qbits_config_param* p, qbits_runtime_ctx* ctx) {
         return execute_task<
             TASK, Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, DequantInt32AlphaBetaStoreBf16>, Parallel>>(
             p, ctx);
+    } else {
+      return execute_task<
+          TASK, Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, AlphaBetaProcessStoreBf16>, Parallel>>(p, ctx);
     }
   }
   TORCH_CHECK(false, "unsupported dst data type.");

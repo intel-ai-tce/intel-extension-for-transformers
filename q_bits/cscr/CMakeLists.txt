@@ -33,4 +33,3 @@ target_compile_features(QSpeed PRIVATE cxx_std_14)
 
 # Link against LibTorch
 target_link_libraries(QSpeed jblas_dispatcher)
-# set_property(TARGET torch_cpu PROPERTY INTERFACE_COMPILE_OPTIONS "")

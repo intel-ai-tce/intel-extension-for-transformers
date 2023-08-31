@@ -29,6 +29,25 @@ inline JBLAS_CODE alphabeta_dt_cvt_process(float* tmp_dst, const int cachestep, 
 }
 
 template <JBLAS_ISA ISA_T, typename DST_T>
+class AlphaBetaProcess {
+ public:
+  struct Param {
+    void *C, *D;
+    int ldc, ldd;
+    float alpha, beta;
+  };
+  JBLAS_CODE forward(float* cacheptr, const int cachestep, const int M_offset, const int N_offset, const int M,
+                     const int N, const Param& _param) {
+    return alphabeta_dt_cvt_process<Param, DST_T, ISA_T>(cacheptr, cachestep, M_offset, N_offset, M, N, _param);
+  }
+};
+
+template <JBLAS_ISA ISA_T>
+using AlphaBetaProcessStoreFp32 = AlphaBetaProcess<ISA_T, float>;
+template <JBLAS_ISA ISA_T>
+using AlphaBetaProcessStoreBf16 = AlphaBetaProcess<ISA_T, jblas::utils::bf16>;
+
+template <JBLAS_ISA ISA_T, typename DST_T>
 class DequantInt32AlphaBeta {
  public:
   struct Param {
