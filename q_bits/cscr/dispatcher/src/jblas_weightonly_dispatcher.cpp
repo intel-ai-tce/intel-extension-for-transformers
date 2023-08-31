@@ -12,6 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 #include "../include/jblas_weightonly_dispatcher.hpp"
+#include "../include/jblas_customop.hpp"
 #include <ATen/core/TensorBody.h>
 #include <c10/util/Exception.h>
 #include <cassert>
@@ -127,8 +128,15 @@ void parse_paramC(qbits_config_param* p, qbits_runtime_ctx* ctx, ParamA param_a)
     return do_compute<KERNEL, ParamA, ParamC>(p, ctx, param_a, param_c);
   } else {
     if constexpr (std::is_same_v<typename KERNEL::GemmCore, jblas::gemm::GemmCore_Row_NN_16x48_AMX_S8S8>) {
-      ParamC param_c = {ctx->output->data_ptr<float>(), ctx->ldo, param_a.Q->mSPtr, param_a.Q->lds,
-                        dynamic_cast<typename KERNEL::WeightType::StorageWeight*>(ctx->deseries_wei)->mSPtr};
+      ParamC param_c = {ctx->output->data_ptr<float>(),
+                        ctx->ldo,
+                        param_a.Q->mSPtr,
+                        param_a.Q->lds,
+                        dynamic_cast<typename KERNEL::WeightType::StorageWeight*>(ctx->deseries_wei)->mSPtr,
+                        ctx->bias->data_ptr<float>(),
+                        0,
+                        ctx->alpha,
+                        ctx->beta};
       return do_compute<KERNEL, ParamA, ParamC>(p, ctx, param_a, param_c);
     }
     if constexpr (std::is_same_v<typename KERNEL::GemmCore, jblas::gemm::GemmCore_Row_NN_8x48_AVX512_VNNI>) {
@@ -202,8 +210,8 @@ void parse_store(qbits_config_param* p, qbits_runtime_ctx* ctx) {
                             Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, ZpDequantInt32ToFp32>, Parallel>>(
             p, ctx);
       if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_16x48_AMX_S8S8>)
-        return execute_task<TASK,
-                            Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, DequantInt32ToFp32>, Parallel>>(
+        return execute_task<
+            TASK, Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, DequantInt32AlphaBetaStoreFp32>, Parallel>>(
             p, ctx);
     } else {
       return execute_task<TASK,
