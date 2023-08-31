@@ -145,7 +145,11 @@ void parse_paramC(qbits_config_param* p, qbits_runtime_ctx* ctx, ParamA param_a)
                         param_a.Q->mZPtr,
                         param_a.Q->mSPtr,
                         param_a.Q->lds,
-                        dynamic_cast<typename KERNEL::WeightType::StorageWeight*>(ctx->deseries_wei)->mSPtr};
+                        dynamic_cast<typename KERNEL::WeightType::StorageWeight*>(ctx->deseries_wei)->mSPtr,
+                        ctx->bias->data_ptr<float>(),
+                        0,
+                        ctx->alpha,
+                        ctx->beta};
       return do_compute<KERNEL, ParamA, ParamC>(p, ctx, param_a, param_c);
     }
   }
@@ -206,8 +210,8 @@ void parse_store(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     using namespace jblas::epilogue::gemm;
     if constexpr (perchannel_Gemmcore<Gemmcore>) {
       if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_8x48_AVX512_VNNI>)
-        return execute_task<TASK,
-                            Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, ZpDequantInt32ToFp32>, Parallel>>(
+        return execute_task<
+            TASK, Interface<Launcher<ISA, Gemmcore, PrologueA, PrologueB, ZpDequantInt32AlphaBetaStoreFp32>, Parallel>>(
             p, ctx);
       if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_16x48_AMX_S8S8>)
         return execute_task<
