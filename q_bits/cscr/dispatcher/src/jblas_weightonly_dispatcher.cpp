@@ -13,6 +13,7 @@
 //  limitations under the License.
 #include "../include/jblas_weightonly_dispatcher.hpp"
 #include "../include/jblas_customop.hpp"
+#include "../include/dispatcher_utils.hpp"
 #include <ATen/core/TensorBody.h>
 #include <c10/util/Exception.h>
 #include <cassert>
@@ -37,7 +38,11 @@
 
 class env_initer {
  public:
-  env_initer() { jblas::utils::request_perm_xtile_data(); }
+  env_initer() {
+    jblas::utils::request_perm_xtile_data();
+    verbose = std::getenv("QBITS_VERBOSE") != nullptr;
+  }
+  bool verbose;
 };
 static env_initer initer;
 
@@ -63,6 +68,7 @@ concept int8_cmptype_kblock_Gemmcore = std::is_same_v<T, jblas::gemm::kblock::Ge
 
 static void* jblas_workspace = nullptr;
 static int64_t workspace_size = 0;
+static dispatcher_utils::Timer timer;
 
 inline bool check_amx() { return jblas::utils::parallel::CpuDevice::getInstance()->AMX_BF16(); }
 inline bool check_vnni() { return jblas::utils::parallel::CpuDevice::getInstance()->AVX_VNNI(); }
@@ -113,11 +119,19 @@ void qbits_dequantize(qbits_config_param* p, qbits_runtime_ctx* ctx) {
 
 template <class KERNEL, class ParamA, class ParamC>
 void do_compute(qbits_config_param* p, qbits_runtime_ctx* ctx, const ParamA param_a, const ParamC param_c) {
+  if (initer.verbose) timer.start();
   static KERNEL gemm_kernel;
   if constexpr (!perchannel_Gemmcore<typename KERNEL::GemmCore>)
     gemm_kernel.compute({ctx->m, ctx->n, ctx->k, param_a, ctx->deseries_wei, param_c});
   else
     gemm_kernel.template compute<true, false>({ctx->m, ctx->n, ctx->k, param_a, ctx->deseries_wei, param_c});
+  if (initer.verbose) {
+    timer.stop();
+    auto cost_time = timer.get_elapsed_time();
+    std::cout << "QBits verbose\n m:" << ctx->m << " n:" << ctx->n << " k:" << ctx->k
+              << " weight_type:" << p->weight_type << " compute_type:" << p->compute_type
+              << " execute time:" << cost_time << "ms" << std::endl;
+  }
 }
 
 template <class KERNEL, class ParamA>
