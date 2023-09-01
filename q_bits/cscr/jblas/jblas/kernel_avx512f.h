@@ -16,6 +16,7 @@
 #include "kernel_ref.h"
 
 #include <array>
+#include <cstring>
 #if CompileAVX512F()
 #include <immintrin.h>
 #endif
@@ -50,7 +51,7 @@ template <JBLAS_SIGN_INT_TYPE S4_T>
 static inline void convert_s4_s8(int8_t* dstptr, int8_t* srcptr, __m512i vmask, int LoadMask) {
   auto ymm = _mm256_maskz_loadu_epi32(LoadMask, (const __m256i*)(srcptr));
   auto zmm = unpack_4bits(ymm, vmask);
-  if (S4_T == S4_FULLRANGE) {
+  if constexpr (S4_T == S4_FULLRANGE) {
     zmm = _mm512_srli_epi32(zmm, 4);
     auto s8 = _mm512_set1_epi8(8);
     zmm = _mm512_sub_epi8(zmm, s8);
@@ -70,9 +71,9 @@ static inline void dequant_s8_N(_DST_T* dstptr, int8_t* srcptr, __m512* vscales)
     auto zmm = _mm512_cvtepi8_epi32(src_s8);
     auto fzmm = _mm512_cvtepi32_ps(zmm);
     fzmm = _mm512_mul_ps(fzmm, vscales[iv]);
-    if (std::is_same<_DST_T, float>::value) {
+    if constexpr (std::is_same<_DST_T, float>::value) {
       _mm512_storeu_ps(dstptr + iv * 16, fzmm);
-    } else if (std::is_same<_DST_T, utils::bf16>::value) {
+    } else if constexpr (std::is_same<_DST_T, utils::bf16>::value) {
       auto bf16_v = _mm512_cvtepi32_epi16(_mm512_bsrli_epi128(_mm512_castps_si512(fzmm), 2));  // TODO: bf16 intrinsic
       _mm256_storeu_si256((__m256i*)(dstptr + iv * 16), bf16_v);
     } else {
@@ -129,18 +130,12 @@ static inline void dequant_f4_N(_DST_T* dstptr, int8_t* srcptr, __m512* vscales)
   int constexpr VLoop = N / 16;
   float* LUT;
   static_assert(F4_T == FP4_BNB || F4_T == NF4 || F4_T == FP4_E2M1, "Unsupported F4 type");
-  switch (F4_T) {
-    case FP4_BNB:
-      LUT = fp4_bnb_dequant_fp32_LUT;
-      break;
-    case NF4:
-      LUT = nf4_dequant_fp32_LUT;
-      break;
-    case FP4_E2M1:
-      LUT = fp4_e2m1_dequant_fp32_LUT;
-      break;
-    default:
-      break;
+  if constexpr (F4_T == FP4_BNB) {
+    LUT = fp4_bnb_dequant_fp32_LUT;
+  } else if constexpr (F4_T == NF4) {
+    LUT = nf4_dequant_fp32_LUT;
+  } else if constexpr (F4_T == FP4_E2M1) {
+    LUT = fp4_e2m1_dequant_fp32_LUT;
   }
 #pragma unroll(VLoop)
   for (int iv = 0; iv < VLoop; iv += 1) {
@@ -150,9 +145,9 @@ static inline void dequant_f4_N(_DST_T* dstptr, int8_t* srcptr, __m512* vscales)
     auto lut = _mm512_loadu_si512(LUT);
     auto fp32_dq_v = _mm512_permutexvar_epi32(pad_idx, lut);
     auto fzmm = _mm512_mul_ps(_mm512_castsi512_ps(fp32_dq_v), vscales[iv]);
-    if (std::is_same<_DST_T, float>::value) {
+    if constexpr (std::is_same<_DST_T, float>::value) {
       _mm512_storeu_ps(dstptr + iv * 16, fzmm);
-    } else if (std::is_same<_DST_T, utils::bf16>::value) {
+    } else if constexpr (std::is_same<_DST_T, utils::bf16>::value) {
 // TODO(zhe): bf16 LUT optimization.
 #if CompileBF16()
       auto bf16_v = (__m256i)_mm512_cvtneps_pbh(fzmm);
@@ -327,10 +322,10 @@ static inline JBLAS_CODE decompress_kblock_bit4_bf16(utils::bit4x2* srcptr, util
 template <typename _ST, typename _DST_T, JBLAS_SIGN_INT_TYPE S4_T>
 static inline JBLAS_CODE decompress_kblock_s4_fp(utils::int4x2* srcptr, _DST_T* dstptr, int row, int col, int ld_src,
                                                  int ld_dst, _ST* scales, int k_offset, int kblock, int NPad) {
-  if (std::is_same<_DST_T, float>::value) {
+  if constexpr (std::is_same<_DST_T, float>::value) {
     return decompress_kblock_bit4_fp32<_ST>(srcptr, (float*)dstptr, row, col, ld_src, ld_dst, scales, k_offset, kblock,
                                             NPad, &dequant_s8_N<48, float>, &convert_s4_s8<S4_T>);
-  } else if (std::is_same<_DST_T, utils::bf16>::value) {
+  } else if constexpr (std::is_same<_DST_T, utils::bf16>::value) {
     return decompress_kblock_bit4_bf16<_ST>(srcptr, (utils::bf16*)dstptr, row, col, ld_src, ld_dst, scales, k_offset,
                                             kblock, NPad, &dequant_s8_N<64, utils::bf16>, &convert_s4_s8<S4_T>);
   }
@@ -340,10 +335,10 @@ static inline JBLAS_CODE decompress_kblock_s4_fp(utils::int4x2* srcptr, _DST_T* 
 template <typename _ST, typename _DST_T, JBLAS_F4_TYPE F4_T>
 static inline JBLAS_CODE decompress_kblock_f4_fp(utils::f4x2* srcptr, _DST_T* dstptr, int row, int col, int ld_src,
                                                  int ld_dst, _ST* scales, int k_offset, int kblock, int NPad) {
-  if (std::is_same<_DST_T, float>::value) {
+  if constexpr (std::is_same<_DST_T, float>::value) {
     return decompress_kblock_bit4_fp32<_ST>(srcptr, (float*)dstptr, row, col, ld_src, ld_dst, scales, k_offset, kblock,
                                             NPad, &dequant_f4_N<48, float, F4_T>, pad_fp4);
-  } else if (std::is_same<_DST_T, utils::bf16>::value) {
+  } else if constexpr (std::is_same<_DST_T, utils::bf16>::value) {
     return decompress_kblock_bit4_bf16<_ST>(srcptr, (utils::bf16*)dstptr, row, col, ld_src, ld_dst, scales, k_offset,
                                             kblock, NPad, &dequant_f4_N<64, utils::bf16, F4_T>, pad_fp4);
   }
@@ -865,6 +860,31 @@ static inline JBLAS_CODE fp16_cvt_fp32_2D_write_back(const utils::fp16* src_ptr,
       _mm512_mask_storeu_ps(dst + j, tail_mask,
                             _mm512_cvtxph_ps(_mm256_castsi256_ph(_mm256_maskz_loadu_epi16(tail_mask, src + j))));
     }
+    if (zeropadding && npadding) std::memset(dst + col, 0, npadding);
+  }
+  return JblasSuccess;
+#else
+  return JblasNotSupport;
+#endif
+}
+
+static inline JBLAS_CODE bf16_cvt_fp32_2D_write_back(const utils::bf16* src_ptr, float* dst_ptr, int row, int col,
+                                                     int src_step, int dst_step, bool zeropadding) {
+#if CompileBF16Kernel()
+  const int npadding = (dst_step - col) * sizeof(float);
+  constexpr int simd_proc_elt = 16;
+  auto col_body = col / simd_proc_elt * simd_proc_elt;
+  auto col_tail = col % simd_proc_elt;
+  const auto tail_mask = _cvtu32_mask16((1U << col_tail) - 1);
+  for (int i = 0; i < row; i++) {
+    auto src = const_cast<utils::bf16*>(src_ptr + i * src_step);
+    auto dst = dst_ptr + i * dst_step;
+    int j = 0;
+    for (; j < col_body; j += simd_proc_elt)
+      _mm512_storeu_ps(dst + j, _mm512_cvtpbh_ps((__m256bh)_mm256_loadu_ps(reinterpret_cast<float*>(src + j))));
+    if (col_tail > 0)
+      _mm512_mask_storeu_ps(dst + j, tail_mask,
+                            _mm512_cvtpbh_ps((__m256bh)_mm256_loadu_ps(reinterpret_cast<float*>(src + j))));
     if (zeropadding && npadding) std::memset(dst + col, 0, npadding);
   }
   return JblasSuccess;
