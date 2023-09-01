@@ -1,5 +1,18 @@
+##  Copyright (c) 2023 Intel Corporation
+##
+##  Licensed under the Apache License, Version 2.0 (the "License");
+##  you may not use this file except in compliance with the License.
+##  You may obtain a copy of the License at
+##
+##    http://www.apache.org/licenses/LICENSE-2.0
+##
+##  Unless required by applicable law or agreed to in writing, software
+##  distributed under the License is distributed on an "AS IS" BASIS,
+##  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##  See the License for the specific language governing permissions and
+##  limitations under the License.
 cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
-project(QSpeed LANGUAGES C CXX)
+project(QBits LANGUAGES C CXX)
 
 # set(CMAKE_CXX_FLAGS "-g -O0 -Wno-narrowing")
 set(CMAKE_CXX_FLAGS "-O3")
@@ -25,11 +38,11 @@ NO_DEFAULT_PATH)
 
 add_subdirectory(dispatcher)
 
-file(GLOB qspeed_src ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+file(GLOB qbits_src ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 # Define our library target
-add_library(QSpeed SHARED ${qspeed_src})
+add_library(QBits SHARED ${qbits_src})
 # Enable C++14
-target_compile_features(QSpeed PRIVATE cxx_std_14)
+target_compile_features(QBits PRIVATE cxx_std_14)
 
 # Link against LibTorch
-target_link_libraries(QSpeed jblas_dispatcher)
+target_link_libraries(QBits jblas_dispatcher)
