@@ -95,14 +95,14 @@ class ActivationBase {
  public:
   using AType = typename _GemmCore_T::AType;
   struct Param {
-    const AType* A;
+    void* A;
     int lda;
   };
   ActivationBase() {}
 
   JBLAS_CODE getActivation(AType** dstptr, int* dststep, const Param& _param, int m_size, int k_size, int m_offset,
                            int k_offset) {
-    auto aptr = const_cast<AType*>(_param.A);
+    auto aptr = reinterpret_cast<AType*>(_param.A);
     if (k_size % _GemmCore_T::KTILE == 0) {
       *dstptr = aptr + m_offset * _param.lda + k_offset;
       *dststep = _param.lda;
@@ -123,14 +123,14 @@ class ActivationConverter {
  public:
   using AType = typename _GemmCore_T::AType;
   struct Param {
-    const SRC_T* A;
+    void* A;
     int lda;
   };
   ActivationConverter() {}
 
   JBLAS_CODE getActivation(AType** dstptr, int* dststep, const Param& _param, int m_size, int k_size, int m_offset,
                            int k_offset) {
-    auto aptr = const_cast<SRC_T*>(_param.A);
+    auto aptr = reinterpret_cast<SRC_T*>(_param.A);
     auto k_pad = utils::padto(k_size, _GemmCore_T::KTILE);
     *dststep = k_pad;
     if constexpr (std::is_same_v<AType, utils::bf16> && std::is_same_v<SRC_T, float>) {

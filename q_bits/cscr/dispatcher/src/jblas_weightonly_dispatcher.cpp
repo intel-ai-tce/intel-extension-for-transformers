@@ -161,7 +161,7 @@ void parse_paramA(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   using PrologueA = typename KERNEL::ActivationType;
   using ParamA = typename PrologueA::Param;
   if constexpr (normal_PrologueA<typename KERNEL::ActivationType::AType>) {
-    ParamA param_a = {ctx->activation->data_ptr<float>(), ctx->lda};
+    ParamA param_a = {ctx->activation->data_ptr(), ctx->lda};
     return parse_paramC<KERNEL, ParamA>(p, ctx, param_a);
   }
   if constexpr (quant_PrologueA<typename KERNEL::ActivationType::AType>) {
@@ -265,6 +265,13 @@ void parse_activation(qbits_config_param* p, qbits_runtime_ctx* ctx) {
         return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationFp32AsymU8Quantize>(
             p, ctx);
     }
+  }
+  if (p->src_dt == QBITS_BF16) {
+    if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_8x48_AVX512F>)
+      return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationConverterBf16>(p,
+                                                                                                                 ctx);
+    if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_16x64_AMX_BF16>)
+      return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationBase>(p, ctx);
   }
   TORCH_CHECK(false, "unsupported src data type.");
 }
