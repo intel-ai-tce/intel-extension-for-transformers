@@ -68,44 +68,24 @@ static void qbits_dequantize(const torch::Tensor& compressed_weight, torch::Tens
   task_dispatcher(&p, &ctx, QBITS_DEQUANTIZE);
 }
 
-static void qbits_linear_with_bias(const torch::Tensor& activation, const torch::Tensor& weight,
-                                   const torch::Tensor& bias, torch::Tensor& output, int64_t lda, int64_t ldo,
-                                   const std::string& compute_type, const std::string& weight_type) {
+static void qbits_linear(const torch::Tensor& activation, const torch::Tensor& weight, const torch::Tensor& bias,
+                         torch::Tensor& output, int64_t ldo, bool with_bias, const std::string& compute_type,
+                         const std::string& weight_type) {
   qbits_config_param p;
+  torch::Tensor* rt_bias = with_bias ? const_cast<torch::Tensor*>(&bias) : &output;
   qbits_runtime_ctx ctx{
       const_cast<torch::Tensor*>(&activation),
       const_cast<torch::Tensor*>(&weight),
-      const_cast<torch::Tensor*>(&bias),
+      rt_bias,
       &output,
   };
-  ctx.lda = lda;
+  ctx.lda = activation.sizes()[1];
   ctx.ldo = ldo;
   ctx.m = activation.sizes()[0];
   ctx.k = activation.sizes()[1];
-  ctx.n = bias.sizes()[0];
+  ctx.n = ldo;
   ctx.alpha = 1.f;
-  ctx.beta = 1.f;
-  init_qbits_config_param<QBITS_LINEAR>(&p, &ctx, compute_type, weight_type);
-  task_dispatcher(&p, &ctx, QBITS_LINEAR);
-}
-
-static void qbits_linear_without_bias(const torch::Tensor& activation, const torch::Tensor& weight,
-                                      torch::Tensor& output, int64_t n, int64_t lda, int64_t ldo,
-                                      const std::string& compute_type, const std::string& weight_type) {
-  qbits_config_param p;
-  qbits_runtime_ctx ctx{
-      const_cast<torch::Tensor*>(&activation),
-      const_cast<torch::Tensor*>(&weight),
-      &output,
-      &output,
-  };
-  ctx.lda = lda;
-  ctx.ldo = ldo;
-  ctx.m = activation.sizes()[0];
-  ctx.k = activation.sizes()[1];
-  ctx.n = n;
-  ctx.alpha = 1.f;
-  ctx.beta = 0.f;
+  ctx.beta = with_bias ? 1.f : 0.f;
   init_qbits_config_param<QBITS_LINEAR>(&p, &ctx, compute_type, weight_type);
   task_dispatcher(&p, &ctx, QBITS_LINEAR);
 }
@@ -116,8 +96,7 @@ static void qbits_set_weightonly_workspace(const torch::Tensor& workspace) {
 
 TORCH_LIBRARY(weight_only_jblasop, m) {
   m.def("qbits_quantize", &qbits_quantize);
-  m.def("qbits_linear_with_bias", &qbits_linear_with_bias);
-  m.def("qbits_linear_without_bias", &qbits_linear_without_bias);
+  m.def("qbits_linear", &qbits_linear);
   m.def("qbits_dequantize", &qbits_dequantize);
   m.def("qbits_set_weightonly_workspace", &qbits_set_weightonly_workspace);
 }

@@ -58,12 +58,8 @@ def test_fp32in_fp32out(m, n, k, blocksize, compute_type, weight_type, transpose
     if transpose:
         revert_wei = torch.transpose(revert_wei, 0, 1)
     ref_dst = torch.matmul(activation, revert_wei)
-    if add_bias:
-        torch.ops.weight_only_jblasop.qbits_linear_with_bias(
-            activation, compress_wei, bias, tar_dst, k, n, compute_type, weight_type)
-    else:
-        torch.ops.weight_only_jblasop.qbits_linear_without_bias(
-            activation, compress_wei, tar_dst, n, k, n, compute_type, weight_type)
+    torch.ops.weight_only_jblasop.qbits_linear(
+        activation, compress_wei, bias, tar_dst, n, add_bias, compute_type, weight_type)
     if add_bias:
         ref_dst += bias
     if dump_tensor_info:
@@ -86,9 +82,9 @@ workspace = torch.zeros(256*512*2, dtype=torch.int8)
 torch.ops.weight_only_jblasop.qbits_set_weightonly_workspace(workspace)
 
 for weight_type in configs:
-    m = 255
+    m = 256
     n = 1023
-    k = 256  # contain unalign calc error bug currently.
+    k = 512  # contain unalign calc error bug currently.
     for compute_type in configs[weight_type]:
         for blocksize in blocksizes:
             if compute_type == "int8" and blocksize % 8 != 0:
