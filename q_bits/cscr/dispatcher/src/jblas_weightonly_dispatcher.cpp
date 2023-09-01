@@ -128,9 +128,11 @@ void do_compute(qbits_config_param* p, qbits_runtime_ctx* ctx, const ParamA para
   if (initer.verbose) {
     timer.stop();
     auto cost_time = timer.get_elapsed_time();
-    std::cout << "QBits verbose\n m:" << ctx->m << " n:" << ctx->n << " k:" << ctx->k
+    std::cout << "QBits verbose\nm:" << ctx->m << " n:" << ctx->n << " k:" << ctx->k
               << " weight_type:" << p->weight_type << " compute_type:" << p->compute_type
-              << " execute time:" << cost_time << "ms" << std::endl;
+              << " blocksize:" << ctx->blocksize << " src_type:" << dispatcher_utils::get_torch_dt_name(ctx->activation)
+              << " dst_type:" << dispatcher_utils::get_torch_dt_name(ctx->output) << " execute time:" << cost_time
+              << "ms" << std::endl;
   }
 }
 

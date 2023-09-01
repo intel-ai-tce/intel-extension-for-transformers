@@ -11,24 +11,15 @@
 //  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
-#pragma once
-#include <torch/serialize/input-archive.h>
-#include <chrono>
-#include <string>
+#include "../include/dispatcher_utils.hpp"
+#include <c10/core/ScalarType.h>
+#include <torch/types.h>
+
 namespace dispatcher_utils {
-using namespace std;
-using namespace std::chrono;
-class Timer {
- public:
-  void start() { m_start = high_resolution_clock::now(); }
-  void stop() { m_end = high_resolution_clock::now(); }
-  double get_elapsed_time() const { return duration_cast<nanoseconds>(m_end - m_start).count() / 1e6; }
-
- private:
-  high_resolution_clock::time_point m_start;
-  high_resolution_clock::time_point m_end;
-};
-
-string get_torch_dt_name(torch::Tensor* tensor);
-
+string get_torch_dt_name(torch::Tensor* tensor) {
+  string ret = "unrecognized";
+  if (tensor->scalar_type() == torch::kFloat32) ret = "fp32";
+  if (tensor->scalar_type() == torch::kBFloat16) ret = "bf16";
+  return ret;
+}
 }  // namespace dispatcher_utils
