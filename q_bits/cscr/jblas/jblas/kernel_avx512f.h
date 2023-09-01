@@ -17,8 +17,12 @@
 
 #include <array>
 #include <cstring>
+#include <type_traits>
 #if CompileAVX512F()
 #include <immintrin.h>
+#endif
+#if CompileBF16Kernel()
+#include <avx512bf16intrin.h>
 #endif
 
 namespace jblas {
@@ -429,9 +433,9 @@ static inline JBLAS_CODE quantize_f32_sign_int_rowblock(const float* srcptr, int
   return JblasSuccess;
 }
 
-static inline JBLAS_CODE quantize_f32_u8_colblock(int row, int col, const float* srcptr, int ld_src, uint8_t* dstptr,
-                                                  int ld_dst, float* scales, int ld_scale, uint8_t* zps,
-                                                  int blocksize) {
+template <typename SRC_T>
+static inline JBLAS_CODE quantize_fp_u8_colblock(int row, int col, const SRC_T* srcptr, int ld_src, uint8_t* dstptr,
+                                                 int ld_dst, float* scales, int ld_scale, uint8_t* zps, int blocksize) {
   int constexpr VLen = 16;
   auto vff = _mm512_set1_epi32(255);
   auto v0 = _mm512_set1_epi32(0);
@@ -445,7 +449,11 @@ static inline JBLAS_CODE quantize_f32_u8_colblock(int row, int col, const float*
       __m512 vminval = _mm512_set1_ps(0.f);
       size_t ij = 0;
       for (; ij < vblocksize; ij += VLen) {
-        auto vsrc = _mm512_loadu_ps(&srcptr[(j + ij) + i * ld_src]);
+        __m512 vsrc;
+        if constexpr (std::is_same_v<SRC_T, float>) vsrc = _mm512_loadu_ps(&srcptr[(j + ij) + i * ld_src]);
+        if constexpr (std::is_same_v<SRC_T, utils::bf16>)
+          vsrc =
+              _mm512_cvtpbh_ps((__m256bh)_mm256_loadu_ps(reinterpret_cast<const float*>(srcptr + j + ij + i * ld_src)));
         vmaxval = _mm512_max_ps(vmaxval, vsrc);
         vminval = _mm512_min_ps(vminval, vsrc);
       }
@@ -453,7 +461,7 @@ static inline JBLAS_CODE quantize_f32_u8_colblock(int row, int col, const float*
       auto minval = _mm512_reduce_min_ps(vminval);
       if (ij < blocksize) {
         for (; ij < blocksize; ij++) {
-          auto srcval = srcptr[(j + ij) + i * ld_src];
+          auto srcval = (float)srcptr[(j + ij) + i * ld_src];
           maxval = std::max(maxval, srcval);
           minval = std::min(minval, srcval);
         }
@@ -467,7 +475,11 @@ static inline JBLAS_CODE quantize_f32_u8_colblock(int row, int col, const float*
       auto vdzp = _mm512_set1_epi32(zp);
       ij = 0;
       for (; ij < vblocksize; ij += VLen) {
-        auto vsrc = _mm512_loadu_ps(&srcptr[(j + ij) + i * ld_src]);
+        __m512 vsrc;
+        if constexpr (std::is_same_v<SRC_T, float>) vsrc = _mm512_loadu_ps(&srcptr[(j + ij) + i * ld_src]);
+        if constexpr (std::is_same_v<SRC_T, utils::bf16>)
+          vsrc =
+              _mm512_cvtpbh_ps((__m256bh)_mm256_loadu_ps(reinterpret_cast<const float*>(srcptr + j + ij + i * ld_src)));
         vsrc = _mm512_mul_ps(vsrc, vrscale);
         auto vdsrc = _mm512_cvtps_epi32(vsrc);
         vdsrc = _mm512_add_epi32(vdsrc, vdzp);
@@ -478,7 +490,7 @@ static inline JBLAS_CODE quantize_f32_u8_colblock(int row, int col, const float*
       }
       if (ij < blocksize) {
         for (; ij < blocksize; ij++) {
-          auto srcval = srcptr[(j + ij) + i * ld_src];
+          auto srcval = (float)srcptr[(j + ij) + i * ld_src];
           srcval = srcval * rscale;
           auto srcint = int(srcval + 0.5f) + zp;
           srcint = std::min(srcint, 0xff);
@@ -492,8 +504,8 @@ static inline JBLAS_CODE quantize_f32_u8_colblock(int row, int col, const float*
       float maxval = 0.f;
       float minval = 0.f;
       for (size_t ij = j; ij < col; ij++) {
-        maxval = std::max(srcptr[ij + i * ld_src], maxval);
-        minval = std::min(srcptr[ij + i * ld_src], minval);
+        maxval = std::max((float)srcptr[ij + i * ld_src], maxval);
+        minval = std::min((float)srcptr[ij + i * ld_src], minval);
       }
       float scale = (maxval - minval) / 255;
       uint8_t zp = utils::cast<float, uint8_t>((0 - minval) / scale);
@@ -501,15 +513,16 @@ static inline JBLAS_CODE quantize_f32_u8_colblock(int row, int col, const float*
       scales[j / blocksize + i * ld_scale] = scale;
       zps[j / blocksize + i * ld_scale] = zp;
       for (size_t ij = j; ij < col; ij++) {
-        dstptr[ij + i * ld_dst] = utils::cast<float, uint8_t>(srcptr[ij + i * ld_src] * rscale + zp);
+        dstptr[ij + i * ld_dst] = utils::cast<float, uint8_t>((float)srcptr[ij + i * ld_src] * rscale + zp);
       }
     }
   }
   return JblasSuccess;
 }
 
-static inline JBLAS_CODE quantize_f32_s8_colblock(int row, int col, const float* srcptr, int ld_src, int8_t* dstptr,
-                                                  int ld_dst, float* scales, int ld_scale, int blocksize) {
+template <typename SRC_T>
+static inline JBLAS_CODE quantize_fp_s8_colblock(int row, int col, const SRC_T* srcptr, int ld_src, int8_t* dstptr,
+                                                 int ld_dst, float* scales, int ld_scale, int blocksize) {
   int constexpr VLen = 16;
   auto vpos = _mm512_set1_epi32(127);
   auto vneg = _mm512_set1_epi32(-128);
@@ -522,14 +535,18 @@ static inline JBLAS_CODE quantize_f32_s8_colblock(int row, int col, const float*
       __m512 vmaxval = _mm512_set1_ps(std::numeric_limits<float>::min());
       size_t ij = 0;
       for (; ij < VBlockSize; ij += VLen) {
-        auto vsrc = _mm512_loadu_ps(&srcptr[(j + ij) + i * ld_src]);
+        __m512 vsrc;
+        if constexpr (std::is_same_v<SRC_T, float>) vsrc = _mm512_loadu_ps(&srcptr[(j + ij) + i * ld_src]);
+        if constexpr (std::is_same_v<SRC_T, utils::bf16>)
+          vsrc =
+              _mm512_cvtpbh_ps((__m256bh)_mm256_loadu_ps(reinterpret_cast<const float*>(srcptr + j + ij + i * ld_src)));
         vsrc = _mm512_abs_ps(vsrc);
         vmaxval = _mm512_max_ps(vmaxval, vsrc);
       }
       auto maxval = _mm512_reduce_max_ps(vmaxval);
       if (ij < blocksize) {
         for (; ij < blocksize; ij++) {
-          auto srcval = std::abs(srcptr[(j + ij) + i * ld_src]);
+          auto srcval = std::abs((float)srcptr[(j + ij) + i * ld_src]);
           maxval = std::max(maxval, srcval);
         }
       }
@@ -539,7 +556,11 @@ static inline JBLAS_CODE quantize_f32_s8_colblock(int row, int col, const float*
       auto vrscale = _mm512_set1_ps(rscale);
       ij = 0;
       for (; ij < VBlockSize; ij += VLen) {
-        auto vsrc = _mm512_loadu_ps(&srcptr[(j + ij) + i * ld_src]);
+        __m512 vsrc;
+        if constexpr (std::is_same_v<SRC_T, float>) vsrc = _mm512_loadu_ps(&srcptr[(j + ij) + i * ld_src]);
+        if constexpr (std::is_same_v<SRC_T, utils::bf16>)
+          vsrc =
+              _mm512_cvtpbh_ps((__m256bh)_mm256_loadu_ps(reinterpret_cast<const float*>(srcptr + j + ij + i * ld_src)));
         vsrc = _mm512_mul_ps(vsrc, vrscale);
         auto vdsrc = _mm512_cvtps_epi32(vsrc);
         vdsrc = _mm512_min_epi32(vdsrc, vpos);
@@ -549,7 +570,7 @@ static inline JBLAS_CODE quantize_f32_s8_colblock(int row, int col, const float*
       }
       if (ij < blocksize) {
         for (; ij < blocksize; ij++) {
-          auto srcval = srcptr[(j + ij) + i * ld_src];
+          auto srcval = (float)srcptr[(j + ij) + i * ld_src];
           srcval = srcval * rscale;
           auto srcint = int(srcval + 0.5f);
           srcint = std::min(srcint, 127);
@@ -561,13 +582,13 @@ static inline JBLAS_CODE quantize_f32_s8_colblock(int row, int col, const float*
     if (j < col) {
       float absmaxval = std::numeric_limits<float>::min();
       for (size_t ij = j; ij < col; ij++) {
-        absmaxval = std::max(std::abs(srcptr[(j + ij) + i * ld_src]), absmaxval);
+        absmaxval = std::max(std::abs((float)srcptr[(j + ij) + i * ld_src]), absmaxval);
       }
       float scale = absmaxval / 127;
       float rscale = 1.f / scale;
       scales[j / blocksize + i * ld_scale] = scale;
       for (size_t ij = j; ij < col; ij++) {
-        dstptr[(ij) + i * ld_dst] = utils::cast<float, int8_t>(srcptr[(ij) + i * ld_src] * rscale);
+        dstptr[(ij) + i * ld_dst] = utils::cast<float, int8_t>((float)srcptr[(ij) + i * ld_src] * rscale);
       }
     }
   }

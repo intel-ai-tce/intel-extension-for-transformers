@@ -13,6 +13,7 @@
 //  limitations under the License.
 #pragma once
 #include <array>
+#include <type_traits>
 
 #include "jblas/jit_blas.h"
 #include "jit_blas_utils.h"
@@ -202,30 +203,35 @@ class QuantizeF4RowBlock {
 };
 class QuantizeU8ColBlock {
  public:
-  template <JBLAS_ISA ISA_T>
-  static inline JBLAS_CODE forward(int row, int col, const float* srcptr, int ld_src, uint8_t* dstptr, int ld_dst,
+  template <JBLAS_ISA ISA_T, typename SRC_T>
+  static inline JBLAS_CODE forward(int row, int col, const SRC_T* srcptr, int ld_src, uint8_t* dstptr, int ld_dst,
                                    float* scales, int ld_scale, uint8_t* zps, int blocksize) {
 #if CompileAVX512F()
     if constexpr (utils::isa_base<ISA_T>::avx512f) {
-      return avx512f::quantize_f32_u8_colblock(row, col, srcptr, ld_src, dstptr, ld_dst, scales, ld_scale, zps,
-                                               blocksize);
+      return avx512f::quantize_fp_u8_colblock<SRC_T>(row, col, srcptr, ld_src, dstptr, ld_dst, scales, ld_scale, zps,
+                                                     blocksize);
     }
 #endif
-    return ref::quantize_f32_u8_colblock(row, col, srcptr, ld_src, dstptr, ld_dst, scales, ld_scale, zps, blocksize);
+    if constexpr (std::is_same_v<SRC_T, float>)
+      return ref::quantize_f32_u8_colblock(row, col, srcptr, ld_src, dstptr, ld_dst, scales, ld_scale, zps, blocksize);
+    return JblasNotSupport;
   }
 };
 
 class QuantizeS8ColBlock {
  public:
-  template <JBLAS_ISA ISA_T>
-  static inline JBLAS_CODE forward(int row, int col, const float* srcptr, int ld_src, int8_t* dstptr, int ld_dst,
+  template <JBLAS_ISA ISA_T, typename SRC_T>
+  static inline JBLAS_CODE forward(int row, int col, const SRC_T* srcptr, int ld_src, int8_t* dstptr, int ld_dst,
                                    float* scales, int ld_scale, int blocksize) {
 #if CompileAVX512F()
     if constexpr (utils::isa_base<ISA_T>::avx512f) {
-      return avx512f::quantize_f32_s8_colblock(row, col, srcptr, ld_src, dstptr, ld_dst, scales, ld_scale, blocksize);
+      return avx512f::quantize_fp_s8_colblock<SRC_T>(row, col, srcptr, ld_src, dstptr, ld_dst, scales, ld_scale,
+                                                     blocksize);
     }
 #endif
-    return ref::quantize_f32_s8_colblock(row, col, srcptr, ld_src, dstptr, ld_dst, scales, ld_scale, blocksize);
+    if constexpr (std::is_same_v<SRC_T, float>)
+      return ref::quantize_f32_s8_colblock(row, col, srcptr, ld_src, dstptr, ld_dst, scales, ld_scale, blocksize);
+    return JblasNotSupport;
   }
 };
 

@@ -175,12 +175,12 @@ void parse_paramA(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     if constexpr (!perchannel_Gemmcore<typename KERNEL::GemmCore>) {
       auto quantA = gemm_kernel.getActivationPtr()->createStorage(ctx->m, ctx->k, ctx->blocksize,
                                                                   reinterpret_cast<int8_t*>(workspace));
-      ParamA param_a = {ctx->activation->data_ptr<float>(), ctx->lda, quantA};
+      ParamA param_a = {ctx->activation->data_ptr(), ctx->lda, quantA};
       parse_paramC<KERNEL, ParamA>(p, ctx, param_a);
       delete quantA;
     } else {
       auto quantA = gemm_kernel.getActivationPtr()->createStorage(ctx->m, ctx->k, reinterpret_cast<int8_t*>(workspace));
-      ParamA param_a = {ctx->activation->data_ptr<float>(), ctx->lda, quantA};
+      ParamA param_a = {ctx->activation->data_ptr(), ctx->lda, quantA};
       parse_paramC<KERNEL, ParamA>(p, ctx, param_a);
       delete quantA;
     }
@@ -267,11 +267,25 @@ void parse_activation(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     }
   }
   if (p->src_dt == QBITS_BF16) {
+    if constexpr (std::is_same_v<Gemmcore, jblas::gemm::kblock::GemmCore_Row_NN_16x48_AMX_INT8_KBLOCK>)
+      return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationBf16S8KBlockQuantize>(
+          p, ctx);
+    if constexpr (std::is_same_v<Gemmcore, jblas::gemm::kblock::GemmCore_Row_NN_3x48_AVX512_VNNI_KBLOCK>)
+      return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationBf16U8KBlockQuantize>(
+          p, ctx);
     if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_8x48_AVX512F>)
       return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationConverterBf16>(p,
                                                                                                                  ctx);
     if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_16x64_AMX_BF16>)
       return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationBase>(p, ctx);
+    if constexpr (perchannel_Gemmcore<Gemmcore>) {
+      if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_16x48_AMX_S8S8>)
+        return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationBf16SymS8Quantize>(
+            p, ctx);
+      if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_8x48_AVX512_VNNI>)
+        return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationBf16AsymU8Quantize>(
+            p, ctx);
+    }
   }
   TORCH_CHECK(false, "Qbits: unsupported src data type in current config, compute_type==" + p->compute_type +
                          " weight_type==" + p->weight_type);
