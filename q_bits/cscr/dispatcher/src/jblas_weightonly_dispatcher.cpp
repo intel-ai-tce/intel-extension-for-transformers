@@ -175,8 +175,9 @@ template <class KERNEL>
 void parse_paramA(qbits_config_param* p, qbits_runtime_ctx* ctx) {
   using PrologueA = typename KERNEL::ActivationType;
   using ParamA = typename PrologueA::Param;
+  using SrcType = typename PrologueA::SRCType;
   if constexpr (normal_PrologueA<typename KERNEL::ActivationType::AType>) {
-    ParamA param_a = {ctx->activation->data_ptr(), ctx->lda};
+    ParamA param_a = {reinterpret_cast<SrcType*>(ctx->activation->data_ptr()), ctx->lda};
     return parse_paramC<KERNEL, ParamA>(p, ctx, param_a);
   }
   if constexpr (quant_PrologueA<typename KERNEL::ActivationType::AType>) {
@@ -190,12 +191,12 @@ void parse_paramA(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     if constexpr (!perchannel_Gemmcore<typename KERNEL::GemmCore>) {
       auto quantA = gemm_kernel.getActivationPtr()->createStorage(ctx->m, ctx->k, ctx->blocksize,
                                                                   reinterpret_cast<int8_t*>(workspace));
-      ParamA param_a = {ctx->activation->data_ptr(), ctx->lda, quantA};
+      ParamA param_a = {reinterpret_cast<SrcType*>(ctx->activation->data_ptr()), ctx->lda, quantA};
       parse_paramC<KERNEL, ParamA>(p, ctx, param_a);
       delete quantA;
     } else {
       auto quantA = gemm_kernel.getActivationPtr()->createStorage(ctx->m, ctx->k, reinterpret_cast<int8_t*>(workspace));
-      ParamA param_a = {ctx->activation->data_ptr(), ctx->lda, quantA};
+      ParamA param_a = {reinterpret_cast<SrcType*>(ctx->activation->data_ptr()), ctx->lda, quantA};
       parse_paramC<KERNEL, ParamA>(p, ctx, param_a);
       delete quantA;
     }

@@ -94,15 +94,16 @@ template <class _GemmCore_T, JBLAS_ISA ISA_T>
 class ActivationBase {
  public:
   using AType = typename _GemmCore_T::AType;
+  using SRCType = AType;
   struct Param {
-    void* A;
+    const AType* A;
     int lda;
   };
   ActivationBase() {}
 
   JBLAS_CODE getActivation(AType** dstptr, int* dststep, const Param& _param, int m_size, int k_size, int m_offset,
                            int k_offset) {
-    auto aptr = reinterpret_cast<AType*>(_param.A);
+    auto aptr = const_cast<AType*>(_param.A);
     if (k_size % _GemmCore_T::KTILE == 0) {
       *dstptr = aptr + m_offset * _param.lda + k_offset;
       *dststep = _param.lda;
@@ -122,15 +123,16 @@ template <class _GemmCore_T, JBLAS_ISA ISA_T, typename SRC_T>
 class ActivationConverter {
  public:
   using AType = typename _GemmCore_T::AType;
+  using SRCType = SRC_T;
   struct Param {
-    void* A;
+    const SRC_T* A;
     int lda;
   };
   ActivationConverter() {}
 
   JBLAS_CODE getActivation(AType** dstptr, int* dststep, const Param& _param, int m_size, int k_size, int m_offset,
                            int k_offset) {
-    auto aptr = reinterpret_cast<SRC_T*>(_param.A);
+    auto aptr = const_cast<SRC_T*>(_param.A);
     auto k_pad = utils::padto(k_size, _GemmCore_T::KTILE);
     *dststep = k_pad;
     if constexpr (std::is_same_v<AType, utils::bf16> && std::is_same_v<SRC_T, float>) {
@@ -224,8 +226,9 @@ class ActivationU8KBlockQuantize {
   using AType = typename _GemmCore_T::AType;
   using SType = float;
   using QParam = StorageQuantActivationKblock<AType, SType>;
+  using SRCType = SRC_T;
   struct Param {
-    void* A;
+    const SRC_T* A;
     int lda;
     QParam* quan;
   };
@@ -258,7 +261,7 @@ class ActivationU8KBlockQuantize {
     auto quan = _param.quan;
     if (rowsize > 0 && colsize > 0) {
       // min max
-      auto srcptr = reinterpret_cast<SRC_T*>(_param.A) + rowidx * _param.lda + colidx;
+      auto srcptr = const_cast<SRC_T*>(_param.A) + rowidx * _param.lda + colidx;
       int rowremain = utils::remainsize(rowidx, para.mRows, rowsize);
       int colremain = utils::remainsize(colidx, para.mCols, colsize);
       auto thdqptr = quan->mWPtr + rowidx * quan->lda + colidx;
@@ -320,8 +323,9 @@ class ActivationAsymU8Quantize {
   using AType = typename _GemmCore_T::AType;
   using SType = float;
   using QParam = StorageQuantActivation<AType, SType>;
+  using SRCType = SRC_T;
   struct Param {
-    void* A;
+    const SRC_T* A;
     int lda;
     QParam* Q;
   };
@@ -353,7 +357,7 @@ class ActivationAsymU8Quantize {
     auto quan = _param.Q;
     if (rowsize > 0 && colsize > 0) {
       // min max
-      auto srcptr = reinterpret_cast<SRC_T*>(_param.A) + rowidx * _param.lda + colidx;
+      auto srcptr = const_cast<SRC_T*>(_param.A) + rowidx * _param.lda + colidx;
       int rowremain = utils::remainsize(rowidx, para.mRows, rowsize);
       int colremain = utils::remainsize(colidx, para.mCols, colsize);
       auto thdqptr = quan->mWPtr + rowidx * quan->lda + colidx;
@@ -394,10 +398,11 @@ class ActivationS8KBlockQuantize {
   using AType = typename _GemmCore_T::AType;
   using SType = float;
   using QParam = StorageQuantActivationKblock<AType, SType>;
+  using SRCType = SRC_T;
   using Parallel = utils::parallel::Parallel2DRowMajorColBlock;
 
   struct Param {
-    void* A;
+    const SRC_T* A;
     int lda;
     QParam* quan;
   };
@@ -429,7 +434,7 @@ class ActivationS8KBlockQuantize {
     auto quan = _param.quan;
     if (rowsize > 0 && colsize > 0) {
       // min max
-      auto srcptr = reinterpret_cast<SRC_T*>(_param.A) + rowidx * _param.lda + colidx;
+      auto srcptr = const_cast<SRC_T*>(_param.A) + rowidx * _param.lda + colidx;
       int rowremain = utils::remainsize(rowidx, para.mRows, rowsize);
       int colremain = utils::remainsize(colidx, para.mCols, colsize);
       auto thdqptr = quan->mWPtr + rowidx * quan->lda + colidx;
@@ -487,8 +492,9 @@ class ActivationSymS8Quantize {
   using AType = typename _GemmCore_T::AType;
   using SType = float;
   using QParam = StorageQuantActivation<AType, SType>;
+  using SRCType = SRC_T;
   struct Param {
-    void* A;
+    const SRC_T* A;
     int lda;
     QParam* Q;
   };
@@ -520,7 +526,7 @@ class ActivationSymS8Quantize {
     auto quan = _param.Q;
     if (rowsize > 0 && colsize > 0) {
       // min max
-      auto srcptr = reinterpret_cast<SRC_T*>(_param.A) + rowidx * _param.lda + colidx;
+      auto srcptr = const_cast<SRC_T*>(_param.A) + rowidx * _param.lda + colidx;
       int rowremain = utils::remainsize(rowidx, para.mRows, rowsize);
       int colremain = utils::remainsize(colidx, para.mCols, colsize);
       auto thdqptr = quan->mWPtr + rowidx * quan->lda + colidx;
