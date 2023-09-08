@@ -17,6 +17,7 @@ Create a python environment, optionally with autoconf for jemalloc support.
 conda create -n <env name> python=3.8 [autoconf]
 conda activate <env name>
 ```
+>**Note**: Make sure pip <=23.2.2
 
 Check that `gcc` version is higher than 9.0.
 ```shell
@@ -36,10 +37,10 @@ pip install -v .
 Install required dependencies for this example
 ```shell
 cd <intel_extension_for_transformers_folder>/examples/huggingface/pytorch/text-to-image/deployment/stable_diffusion
-pip install -r requirements.txt
-```
->**Note**: Recommend install protobuf <= 3.20.0 if use onnxruntime <= 1.11
 
+pip install -r requirements.txt
+pip install transformers==4.28.1
+```
 
 ## Environment Variables (Optional)
 ```shell
@@ -74,27 +75,38 @@ By setting --bf16 to export FP32 and BF16 models.
 python prepare_model.py --input_model=CompVis/stable-diffusion-v1-4 --output_path=./model --bf16
 ```
 
+For INT8 quantized mode, we **only support runwayml/stable-diffusion-v1-5** for now.
+You need to get a quantized INT8 model first through QAT, Please refer the [link](https://github.com/intel/intel-extension-for-transformers/blob/main/examples/huggingface/pytorch/text-to-image/quantization/qat/README.md).
+Then by setting --qat_int8 to export INT8 models, to export INT8 model.
+```python
+python prepare_model.py --input_model=runwayml/stable-diffusion-v1-5 --output_path=./model --qat_int8
+```
+
 ### 1.2 Compile Models
 
-Export three FP32 onnx sub models of the stable diffusion to Nerual Engine IRs.
+Export three FP32 onnx sub models of the stable diffusion to Nerual Engine IR.
 
 ```bash
-# running the follow bash comand to get all IRs.
+# running the follow bash comand to get all IR.
 bash export_model.sh --input_model=model --precision=fp32
 ```
 
-Export three BF16 onnx sub models of the stable diffusion to Nerual Engine IRs.
+Export three BF16 onnx sub models of the stable diffusion to Nerual Engine IR.
 
 ```bash
-# running the follow bash comand to get all IRs.
+# running the follow bash comand to get all IR.
 bash export_model.sh --input_model=model --precision=bf16
 ```
 
-Export mixed FP32 & dynamic quantized Int8 IRs.
+Export mixed FP32 & dynamic quantized Int8 IR.
 
 ```bash
-# running the follow comand to get mixed FP32 & dynamic quantized Int8 IRs.
 bash export_model.sh --input_model=model --precision=fp32 --cast_type=dynamic_int8
+```
+
+Export mixed BF16 & QAT quantized Int8 IR.
+```bash
+bash export_model.sh --input_model=model --precision=qat_int8
 ```
 
 ## 2. Performance
@@ -104,11 +116,14 @@ Python API command as follows:
 # FP32 IR
 python run_executor.py --ir_path=./fp32_ir --mode=latency --input_model=CompVis/stable-diffusion-v1-4
 
-# mixed FP32 & dynamic quantized Int8 IRs.
+# Mixed FP32 & dynamic quantized Int8 IR.
 python run_executor.py --ir_path=./fp32_dynamic_int8_ir --mode=latency --input_model=CompVis/stable-diffusion-v1-4
 
 # BF16 IR
 python run_executor.py --ir_path=./bf16_ir --mode=latency --input_model=CompVis/stable-diffusion-v1-4
+
+# QAT INT8 IR
+python run_executor.py --ir_path=./qat_int8_ir --mode=latency --input_model=runwayml/stable-diffusion-v1-5
 ```
 
 ## 3. Accuracy
@@ -120,11 +135,14 @@ Python API command as follows:
 # FP32 IR
 python run_executor.py --ir_path=./fp32_ir --mode=accuracy --input_model=CompVis/stable-diffusion-v1-4
 
-# mixed FP32 & dynamic quantized Int8 IRs
+# Mixed FP32 & dynamic quantized Int8 IR
 python run_executor.py --ir_path=./fp32_dynamic_int8_ir --mode=accuracy --input_model=CompVis/stable-diffusion-v1-4
 
 # BF16 IR
 python run_executor.py --ir_path=./bf16_ir --mode=accuracy --input_model=CompVis/stable-diffusion-v1-4
+
+# QAT INT8 IR
+python run_executor.py --ir_path=./qat_int8_ir --mode=accuracy --input_model=runwayml/stable-diffusion-v1-5
 ```
 
 ## 4. Try Text to Image
@@ -132,7 +150,7 @@ python run_executor.py --ir_path=./bf16_ir --mode=accuracy --input_model=CompVis
 Try using one sentence to create a picture!
 
 ```python
-# Running FP32 models or BF16 models, just import differnt IRs.
+# Running FP32 models or BF16 models, just import differnt IR.
 # FP32 models
 python run_executor.py --ir_path=./fp32_ir --input_model=CompVis/stable-diffusion-v1-4
 ```
@@ -147,7 +165,7 @@ python run_executor.py --ir_path=./bf16_ir --input_model=CompVis/stable-diffusio
 > Note: 
 > 1. The default pretrained model is "CompVis/stable-diffusion-v1-4".
 > 2. The default prompt is "a photo of an astronaut riding a horse on mars" and the default output name is "astronaut_rides_horse.png".
-> 3. The ir directory should include three IRs for text_encoder, unet and vae_decoder.
+> 3. The ir directory should include three IR for text_encoder, unet and vae_decoder.
 
 ## 5. Validated Result
 

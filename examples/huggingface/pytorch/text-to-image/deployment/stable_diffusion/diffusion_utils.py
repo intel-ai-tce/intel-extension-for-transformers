@@ -24,7 +24,7 @@ import copy
 from packaging import version
 from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
 
-from intel_extension_for_transformers.backends.neural_engine.compile.graph import Graph
+from intel_extension_for_transformers.llm.runtime.deprecated.compile.graph import Graph
 
 from diffusers.configuration_utils import FrozenDict
 from diffusers.models import AutoencoderKL, UNet2DConditionModel
@@ -669,7 +669,7 @@ def neural_engine_init(ir_path):
     uent_path = ir_path + '/unet/'
     unet_conf = uent_path + 'conf.yaml'
     unet_bin = uent_path + 'model.bin'
-    unet_graph.graph_init(unet_conf, unet_bin)
+    unet_graph.graph_init(unet_conf, unet_bin, True)
 
     vae_decoder_graph = Graph()
     vae_decoder_path = ir_path + '/vae_decoder/'
