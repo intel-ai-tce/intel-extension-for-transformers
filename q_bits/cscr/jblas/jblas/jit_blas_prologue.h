@@ -398,8 +398,8 @@ class ActivationS8KBlockQuantize {
   using AType = typename _GemmCore_T::AType;
   using SType = float;
   using QParam = StorageQuantActivationKblock<AType, SType>;
-  using SRCType = SRC_T;
   using Parallel = utils::parallel::Parallel2DRowMajorColBlock;
+  using SRCType = SRC_T;
 
   struct Param {
     const SRC_T* A;
