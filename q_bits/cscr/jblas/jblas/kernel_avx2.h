@@ -12,6 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 #pragma once
+#include "jblas/jit_blas.h"
 #include "kernel_ref.h"
 #include "jit_blas_utils.h"
 #if CompileAVX2()
@@ -111,8 +112,10 @@ JBLAS_CODE dequant_kblock_s8_f32_fwd(int8_t* srcptr, float* dstptr, int row, int
     int j = 0;
     for (; j < simd_process_num; j += Vlen) {
       auto s8_ymm_v = _mm_loadu_si64(srcptr + i * ld_src + j);
-      if constexpr (WITH_ZP) s8_ymm_v = _mm_add_epi8(s8_ymm_v, _mm_loadu_si64(zero_points + kpos * NPad + j));
       auto s32_ymm_v = _mm256_cvtepi8_epi32(s8_ymm_v);
+      if constexpr (WITH_ZP) {
+        s32_ymm_v = _mm256_sub_epi32(s32_ymm_v, _mm256_cvtepi8_epi32(_mm_loadu_si64(zero_points + kpos * NPad + j)));
+      }
       auto f32_ymm_v = _mm256_cvtepi32_ps(s32_ymm_v);
       f32_ymm_v = _mm256_mul_ps(f32_ymm_v, _mm256_loadu_ps(sptr + j));
       _mm256_storeu_ps(dstptr + i * ld_dst + j, f32_ymm_v);
@@ -157,7 +160,7 @@ static inline JBLAS_CODE decompress_s4_s8(utils::int4x2* srcptr, int8_t* dstptr,
       dstptr[i + 1] = jblas::kernel::ref::get_s8<S4_T>(tmp.y);
     }
   }
-  return JblasNotSupport;
+  return JblasSuccess;
 }
 
 template <int N, typename _DST_T, JBLAS_F4_TYPE F4_T>
@@ -370,6 +373,64 @@ static inline JBLAS_CODE quantize_fp_u8_colblock(int row, int col, const SRC_T* 
       for (size_t ij = j; ij < col; ij++) {
         dstptr[ij + i * ld_dst] = utils::cast<float, uint8_t>((float)srcptr[ij + i * ld_src] * rscale + zp);
       }
+    }
+  }
+  return JblasSuccess;
+}
+
+static inline JBLAS_CODE bf16_cvt_fp32_2D_write_back(const utils::bf16* src_ptr, float* dst_ptr, int row, int col,
+                                                     int src_step, int dst_step, bool zeropadding) {
+  const int npadding = (dst_step - col) * sizeof(float);
+  constexpr int simd_proc_elt = 8;
+  auto col_body = col / simd_proc_elt * simd_proc_elt;
+  for (int i = 0; i < row; i++) {
+    auto src = const_cast<utils::bf16*>(src_ptr + i * src_step);
+    auto dst = dst_ptr + i * dst_step;
+    int j = 0;
+    for (; j < col_body; j += simd_proc_elt) {
+      auto bf16_v = _mm_loadu_si128(reinterpret_cast<__m128i*>(src + j));
+      auto fp32_v = _mm256_castsi256_ps(_mm256_bslli_epi128(_mm256_cvtepu16_epi32(bf16_v), 2));
+      _mm256_storeu_ps(dst + j, fp32_v);
+    }
+    for (; j < col; j++) {
+      *(dst + j) = (src + j)->tofloat();
+    }
+    if (zeropadding && npadding) std::memset(dst + col, 0, npadding);
+  }
+  return JblasSuccess;
+}
+
+static const uint8_t avx2_bf16_convert_maigc_num[32] = {
+    0x02, 0x03, 0x06, 0x07, 0x0a, 0x0b, 0x0e, 0x0f, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+    0x02, 0x03, 0x06, 0x07, 0x0a, 0x0b, 0x0e, 0x0f, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80};
+
+static inline __m128i cvt_fp32_to_bf16(const __m256 src) {
+  auto shuffle_v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(avx2_bf16_convert_maigc_num));
+  __m256i trunc_elements = _mm256_shuffle_epi8(_mm256_castps_si256(src), shuffle_v);
+  __m256i ordered = _mm256_permute4x64_epi64(trunc_elements, 0x58);
+  return _mm256_castsi256_si128(ordered);
+}
+
+static inline JBLAS_CODE fp32_cvt_bf16_2D_write_back(const void* raw_srcptr, void* raw_dstptr, int row, int col,
+                                                     int srcstride, int dststride, bool zeropadding) {
+  char* srcptr = (char*)raw_srcptr;
+  char* dstptr = (char*)raw_dstptr;
+  constexpr int simd_proc_elt = 8;
+  auto col_body_loop = col / simd_proc_elt * simd_proc_elt;
+  int npadding = dststride - col * sizeof(utils::bf16);
+  for (int i = 0; i < row; i++) {
+    auto src = srcptr + i * srcstride;
+    auto dst = dstptr + i * dststride;
+    int j = 0;
+    for (; j < col_body_loop; j += simd_proc_elt) {
+      auto pack_bf16_value = cvt_fp32_to_bf16(_mm256_loadu_ps(reinterpret_cast<float*>(src) + j));
+      _mm_storeu_si128((__m128i*)(dst + j * sizeof(jblas::utils::bf16)), pack_bf16_value);
+    }
+    for (; j < col; j++) {
+      (reinterpret_cast<jblas::utils::bf16*>(dst) + j)->fromfloat(*(reinterpret_cast<float*>(src) + j));
+    }
+    if (zeropadding && npadding) {
+      std::memset(dst + col * sizeof(utils::bf16), 0, npadding);
     }
   }
   return JblasSuccess;

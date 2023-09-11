@@ -269,13 +269,12 @@ void parse_activation(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     if constexpr (std::is_same_v<Gemmcore, jblas::gemm::kblock::GemmCore_Row_NN_3x48_AVX512_VNNI_KBLOCK>)
       return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationF32U8KBlockQuantize>(
           p, ctx);
-    if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_8x48_AVX512F>)
+    if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_8x48_AVX512F> ||
+                  std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_2x48_AVX2>)
       return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationBase>(p, ctx);
     if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_16x64_AMX_BF16>)
       return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationConverterFp32>(p,
                                                                                                                  ctx);
-    if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_2x48_AVX2>)
-      return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationBase>(p, ctx);
     if constexpr (perchannel_Gemmcore<Gemmcore>) {
       if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_16x48_AMX_S8S8>)
         return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationFp32SymS8Quantize>(
@@ -292,7 +291,8 @@ void parse_activation(qbits_config_param* p, qbits_runtime_ctx* ctx) {
     if constexpr (std::is_same_v<Gemmcore, jblas::gemm::kblock::GemmCore_Row_NN_3x48_AVX512_VNNI_KBLOCK>)
       return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationBf16U8KBlockQuantize>(
           p, ctx);
-    if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_8x48_AVX512F>)
+    if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_8x48_AVX512F> ||
+                  std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_2x48_AVX2>)
       return parse_store<TASK, Interface, Launcher, Gemmcore, Parallel, ISA, PrologueB, ActivationConverterBf16>(p,
                                                                                                                  ctx);
     if constexpr (std::is_same_v<Gemmcore, jblas::gemm::GemmCore_Row_NN_16x64_AMX_BF16>)

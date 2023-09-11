@@ -17,6 +17,7 @@
 import torch
 import inspect
 from functools import wraps
+import time
 torch.ops.load_library("../build/libQBits.so")
 
 
@@ -62,7 +63,10 @@ def test(m, n, k, blocksize, compute_type, weight_type, transpose, add_bias, src
         tar_dst = tar_dst.to(torch.bfloat16)
     if transpose:
         revert_wei = torch.transpose(revert_wei, 0, 1)
+    torch_start=time.perf_counter()
     ref_dst = torch.matmul(ref_activation, revert_wei)
+    torch_end=time.perf_counter()
+    print("torch took {} milliseconds to run.".format((torch_end - torch_start) * 1000))
     torch.ops.weight_only_jblasop.qbits_linear(
         tar_activation, compress_wei, bias, tar_dst, n, add_bias, compute_type, weight_type)
     if dst_dt == "bf16":

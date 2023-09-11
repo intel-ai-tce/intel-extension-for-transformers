@@ -95,6 +95,9 @@ class Memcpy2DFp32CvtBf16 {
     if constexpr (utils::isa_base<ISA_T>::avx512f) {
       return kernel::avx512f::fp32_cvt_bf16_2D_write_back(srcptr, dstptr, row, col, srcstride, dststride, zeropadding);
     }
+    if constexpr (utils::isa_base<ISA_T>::avx2) {
+      return kernel::avx2::fp32_cvt_bf16_2D_write_back(srcptr, dstptr, row, col, srcstride, dststride, zeropadding);
+    }
 #endif
     return kernel::ref::dt_cvt_2D_write_back<float, utils::bf16>(srcptr, dstptr, row, col, srcstride, dststride,
                                                                  zeropadding);
@@ -142,6 +145,10 @@ class Memcpy2DBf16CvtFp32 {
       return kernel::avx512f::bf16_cvt_fp32_2D_write_back(  //
           (const utils::bf16*)srcptr, (float*)dstptr, row, col, srcstride / sizeof(utils::bf16),
           dststride / sizeof(float), zeropadding);
+    } else if constexpr (ISA_T >= JblasAVX2) {
+      return kernel::avx2::bf16_cvt_fp32_2D_write_back((const utils::bf16*)srcptr, (float*)dstptr, row, col,
+                                                       srcstride / sizeof(utils::bf16), dststride / sizeof(float),
+                                                       zeropadding);
     } else {
       return kernel::ref::dt_cvt_2D_write_back<utils::bf16, float>(srcptr, dstptr, row, col, srcstride, dststride,
                                                                    zeropadding);
