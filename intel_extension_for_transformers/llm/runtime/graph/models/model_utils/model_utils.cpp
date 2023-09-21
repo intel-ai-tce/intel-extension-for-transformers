@@ -61,11 +61,17 @@ static bool kv_cache_init(const struct model_hparams& hparams, struct model_kv_c
   int32_t k_size, v_size;
   get_batch_kv_elements_from_gpt_params(hparams, wtype, &k_size, &v_size);
 
-  const int64_t n_elements_k = n_head_kv * hparams.n_layer * batch_size * beam_size * k_size;
-  const int64_t n_elements_v = n_head_kv * hparams.n_layer * batch_size * beam_size * v_size;
+  int64_t n_elements_k = n_head_kv * hparams.n_layer * batch_size * beam_size * k_size;
+  int64_t n_elements_v = n_head_kv * hparams.n_layer * batch_size * beam_size * v_size;
   const auto wsize = wtype == NE_TYPE_JBLAS ? 1 : ne_type_size(wtype);
   NE_ASSERT(wtype != NE_TYPE_JBLAS || n_head_kv == 1);
-
+  #ifdef NE_TP_MODEL
+    // when use TP, cached kv will also have smaller size
+    parallel_context* p_ctx = init_parallel_context();
+    int32_t world_size = get_tp_size(p_ctx);
+    n_elements_k /= world_size;
+    n_elements_v /= world_size;
+  #endif
   cache.buf.resize((n_elements_k + n_elements_v) * wsize + 2u * MB);
 
   struct ne_init_params params;

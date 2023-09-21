@@ -68,12 +68,24 @@ static bool llama_model_eval_internal(model_context& lctx, const model_token* to
 
   MODEL_ASSERT(!!kv_self.ctx);
 
-  const int n_embd = hparams.n_embd;
+  int n_embd = hparams.n_embd;
   const int n_layer = hparams.n_layer;
   const int n_ctx = hparams.n_ctx;
-  const int n_head = hparams.n_head;
+  int n_head = hparams.n_head;
+  int head_size = n_embd / n_head;
+
+  bool enable_tp = false;
+#ifdef NE_TP_MODEL
+  parallel_context* p_ctx = init_parallel_context();
+  int32_t world_size = get_tp_size(p_ctx);
+  int32_t rank = get_tp_rank(p_ctx);
+  enable_tp = world_size > 1 ? true : false;
+
+  // after TP the Q K n_head will become 1/world_size
+  if(enable_tp) { n_head /= world_size; }
+#endif
   const int n_vocab = hparams.n_vocab;
-  const int n_rot = hparams.n_embd / hparams.n_head;
+  const int n_rot = head_size;
 
   auto& mem_per_token = lctx.mem_per_token;
   auto& buf_compute = lctx.buf_compute;
@@ -98,7 +110,7 @@ static bool llama_model_eval_internal(model_context& lctx, const model_token* to
     attn_shape_t attn_shape = {
         /* .batch_size = */ 1,
         /* .head_num = */ n_head,
-        /* .head_size = */ n_embd / n_head,
+        /* .head_size = */ head_size,
         /* .sl_q = */ N,  // Note: make sure that jblas reordered attn supports next token inferencing
         /* .sl_kv = */ n_past + N,
     };
@@ -107,7 +119,7 @@ static bool llama_model_eval_internal(model_context& lctx, const model_token* to
                jblas_reordered_attn_fp32_support(&attn_shape)));
     kv_shape_t kv_shape{
         /* .head_num = */ static_cast<uint32_t>(n_head),
-        /* .head_size = */ static_cast<uint32_t>(n_embd / n_head),
+        /* .head_size = */ static_cast<uint32_t>(head_size),
         /* .sl_kv_max = */ static_cast<uint32_t>(n_ctx),
     };
     jblas_reordered_attn_fp32_batch_kv_info(&kv_shape, &kv_cache_info);
@@ -116,6 +128,13 @@ static bool llama_model_eval_internal(model_context& lctx, const model_token* to
   struct ne_tensor* embd = ne_new_tensor_1d(ctx0, NE_TYPE_I32, N, NE_SIZE_CALC);
   ne_set_name(embd, "embd");
   memcpy(embd->data, tokens, N * ne_element_size(embd));
+
+#ifdef NE_TP_MODEL
+  if (enable_tp) {
+    // need to broadcast the ids
+    broadcast(p_ctx, (float*)embd->data, N * ne_element_size(embd));
+  }
+#endif
 
   struct ne_tensor* inpL = ne_get_rows(ctx0, model.others[0], embd);
 
@@ -134,6 +153,7 @@ static bool llama_model_eval_internal(model_context& lctx, const model_token* to
       cur = ne_mul(ctx0, cur, model.layers[il].norm[0]);
     }
     ne_tensor *Qcur, *Kcur, *Vcur;
+    size_t qkv_size = head_size * n_head * N;
     if (jblas_fusion_QKV_f32f32_support(model.layers[il].attn[0]->data, model.layers[il].attn[1]->data,
                                         model.layers[il].attn[2]->data, N, model.layers[il].attn[0]->ne[1],
                                         model.layers[il].attn[0]->ne[0])) {  // fused execution of QKV
@@ -141,26 +161,25 @@ static bool llama_model_eval_internal(model_context& lctx, const model_token* to
           ne_mul_qkv(ctx0, model.layers[il].attn[0], model.layers[il].attn[1], model.layers[il].attn[2], cur);
       Qcur = ne_rope_inplace(
           ctx0,
-          ne_reshape_3d(ctx0, ne_view_1d(ctx0, QKVcur, N * n_embd, 0 * N * n_embd * ne_element_size(QKVcur)),
-                        n_embd / n_head, n_head, N),
+          ne_reshape_3d(ctx0, ne_view_1d(ctx0, QKVcur, qkv_size, 0 * qkv_size * ne_element_size(QKVcur)),
+                        head_size, n_head, N),
           n_past, n_rot, 0, 0);
       Kcur = ne_rope_inplace(
           ctx0,
-          ne_reshape_3d(ctx0, ne_view_1d(ctx0, QKVcur, N * n_embd, 1 * N * n_embd * ne_element_size(QKVcur)),
-                        n_embd / n_head, n_head, N),
+          ne_reshape_3d(ctx0, ne_view_1d(ctx0, QKVcur, qkv_size, 1 * qkv_size * ne_element_size(QKVcur)),
+                        head_size, n_head, N),
           n_past, n_rot, 0, 0);
       Vcur = ne_transpose(
-          ctx0, ne_reshape_2d(ctx0, ne_view_1d(ctx0, QKVcur, N * n_embd, 2 * N * n_embd * ne_element_size(QKVcur)),
-                              n_embd, N));
-
+          ctx0, ne_reshape_2d(ctx0, ne_view_1d(ctx0, QKVcur, qkv_size, 2 * qkv_size * ne_element_size(QKVcur)),
+                              head_size * n_head, N));
     } else {
       Qcur = ne_rope_inplace(
-          ctx0, ne_reshape_3d(ctx0, ne_mul_mat(ctx0, model.layers[il].attn[0], cur), n_embd / n_head, n_head, N),
+          ctx0, ne_reshape_3d(ctx0, ne_mul_mat(ctx0, model.layers[il].attn[0], cur), head_size, n_head, N),
           n_past, n_rot, 0, 0);
       Kcur = ne_rope_inplace(
-          ctx0, ne_reshape_3d(ctx0, ne_mul_mat(ctx0, model.layers[il].attn[1], cur), n_embd / n_head, n_head, N),
+          ctx0, ne_reshape_3d(ctx0, ne_mul_mat(ctx0, model.layers[il].attn[1], cur), head_size, n_head, N),
           n_past, n_rot, 0, 0);
-      Vcur = ne_transpose(ctx0, ne_reshape_2d(ctx0, ne_mul_mat(ctx0, model.layers[il].attn[2], cur), n_embd, N));
+      Vcur = ne_transpose(ctx0, ne_reshape_2d(ctx0, ne_mul_mat(ctx0, model.layers[il].attn[2], cur), head_size * n_head, N));
     }
     ne_set_name(Qcur, "Qcur");
     ne_set_name(Kcur, "Kcur");
@@ -170,10 +189,10 @@ static bool llama_model_eval_internal(model_context& lctx, const model_token* to
       // store key and value to memory
       {
         struct ne_tensor* k =
-            ne_view_1d(ctx0, kv_self.k, N * n_embd, (ne_element_size(kv_self.k) * n_embd) * (il * n_ctx + n_past));
+            ne_view_1d(ctx0, kv_self.k, qkv_size, (ne_element_size(kv_self.k) * head_size * n_head) * (il * n_ctx + n_past));
         struct ne_tensor* v =
-            ne_view_2d(ctx0, kv_self.v, N, n_embd, (n_ctx)*ne_element_size(kv_self.v),
-                       (il * n_ctx) * ne_element_size(kv_self.v) * n_embd + n_past * ne_element_size(kv_self.v));
+            ne_view_2d(ctx0, kv_self.v, N, head_size * n_head, (n_ctx)*ne_element_size(kv_self.v),
+                       (il * n_ctx) * ne_element_size(kv_self.v) * head_size * n_head + n_past * ne_element_size(kv_self.v));
 
         // important: storing RoPE-ed version of K in the KV cache!
         ne_build_forward_expand(&gf, ne_cpy(ctx0, Kcur, k));
@@ -185,9 +204,9 @@ static bool llama_model_eval_internal(model_context& lctx, const model_token* to
 
       struct ne_tensor* K = ne_permute(ctx0,
                                        ne_reshape_3d(ctx0,
-                                                     ne_view_1d(ctx0, kv_self.k, (n_past + N) * n_embd,
-                                                                il * n_ctx * ne_element_size(kv_self.k) * n_embd),
-                                                     n_embd / n_head, n_head, n_past + N),
+                                                     ne_view_1d(ctx0, kv_self.k, (n_past + N) * head_size * n_head,
+                                                                il * n_ctx * ne_element_size(kv_self.k) * head_size * n_head),
+                                                     head_size, n_head, n_past + N),
                                        0, 2, 1, 3);
       ne_set_name(K, "K");
 
@@ -196,7 +215,7 @@ static bool llama_model_eval_internal(model_context& lctx, const model_token* to
       ne_set_name(KQ, "KQ");
 
       // KQ_scaled = KQ / sqrt(n_embd/n_head)
-      struct ne_tensor* KQ_scale = ne_new_f32(ctx0, 1.0f / sqrtf(float(n_embd) / n_head));
+      struct ne_tensor* KQ_scale = ne_new_f32(ctx0, 1.0f / sqrtf(float(head_size)));
       ne_set_name(KQ_scale, "1/sqrt(n_embd/n_head)");
 
       // KQ_scaled shape [n_past + N, N, n_head, 1]
@@ -213,8 +232,8 @@ static bool llama_model_eval_internal(model_context& lctx, const model_token* to
 
       // split cached V into n_head heads
       struct ne_tensor* V = ne_view_3d(
-          ctx0, kv_self.v, n_past + N, n_embd / n_head, n_head, n_ctx * ne_element_size(kv_self.v),
-          n_ctx * ne_element_size(kv_self.v) * n_embd / n_head, il * n_ctx * ne_element_size(kv_self.v) * n_embd);
+          ctx0, kv_self.v, n_past + N, head_size, n_head, n_ctx * ne_element_size(kv_self.v),
+          n_ctx * ne_element_size(kv_self.v) * head_size, il * n_ctx * ne_element_size(kv_self.v) * head_size * n_head);
       ne_set_name(V, "V");
 
       struct ne_tensor* KQV = ne_mul_mat(ctx0, V, KQ_soft_max);
@@ -225,13 +244,12 @@ static bool llama_model_eval_internal(model_context& lctx, const model_token* to
       ne_set_name(KQV_merged, "KQV_merged");
 
       // cur = KQV_merged.contiguous().view(n_embd, N)
-      cur = ne_cpy(ctx0, KQV_merged, ne_new_tensor_2d(ctx0, NE_TYPE_F32, n_embd, N, NE_SIZE_CALC));
+      cur = ne_cpy(ctx0, KQV_merged, ne_new_tensor_2d(ctx0, NE_TYPE_F32, head_size * n_head, N, NE_SIZE_CALC));
       ne_set_name(cur, "KQV_merged_contiguous");
 
       // projection (no bias)
       cur = ne_mul_mat(ctx0, model.layers[il].attn[3], cur);
     } else {
-      const auto head_size = n_embd / n_head;
       const auto seq_kv = n_past + N;
 
       const auto k_size = kv_cache_info.k_bytes;
@@ -270,15 +288,19 @@ static bool llama_model_eval_internal(model_context& lctx, const model_token* to
       *reinterpret_cast<ATTN_FWD_LAYOUT*>(&V->nb[0]) = kv_cache_info.v_layout;           // us nb0 for layout
       ne_set_name(V, "V");
 
-      struct ne_tensor* KQV_Out = ne_flash_attn(ctx0, Q, K, V, 1.0f / sqrtf(float(n_embd) / n_head),
+      struct ne_tensor* KQV_Out = ne_flash_attn(ctx0, Q, K, V, 1.0f / sqrtf(float(head_size)),
                                                 n_past == 0);  // no causal mask on next-token cases
       struct ne_tensor* KQV_merged_contiguous =
-          ne_view_2d(ctx0, KQV_Out, n_embd, N, n_embd * ne_element_size(KQV_Out), 0);
+          ne_view_2d(ctx0, KQV_Out, head_size * n_head, N, head_size * n_head * ne_element_size(KQV_Out), 0);
       ne_set_name(KQV_merged_contiguous, "KQV_merged_contiguous");
 
       // projection (no bias)
       cur = ne_mul_mat(ctx0, model.layers[il].attn[3], KQV_merged_contiguous);
     }
+#ifdef NE_TP_MODEL
+      // ffn2 and ffn0 use split row, ffn1 use split column
+      if (enable_tp) { cur = ne_all_reduce(ctx0, cur); }
+#endif
 
     lctx.use_buf(ctx0, 1);
 
@@ -309,6 +331,12 @@ static bool llama_model_eval_internal(model_context& lctx, const model_token* to
         cur = ne_mul(ctx0, cur, tmp);
 
         cur = ne_mul_mat(ctx0, model.layers[il].ffn[1], cur);
+#ifdef NE_TP_MODEL
+        // ffn2 and ffn0 use split row, ffn1 use split column
+        if (enable_tp) {
+          cur = ne_all_reduce(ctx0, cur);
+        }
+#endif
       }
     }
 
