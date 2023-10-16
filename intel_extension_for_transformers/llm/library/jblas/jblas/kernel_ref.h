@@ -873,11 +873,10 @@ constexpr auto broadcast(const int8_t* arr) {
 }
 
 inline void simd_f32_nf4_quantize_8x16(const float* srcptr, int8_t* dstptr, int ld_src, int ld_dst,
-                                       float* scales = NULL) {
+                                       const int8_t* broadcast_nf4_v, float* scales = NULL) {
   auto zmm_scale = _mm512_rcp14_ps(_mm512_loadu_ps(scales));
   auto zp = _mm512_set1_ps(0.8480964004993439);
   auto avoid_double_cmp = _mm512_set1_ps(100.f);
-  constexpr auto broadcast_nf4_quantv = broadcast<16>(nf4_simd_quant_v);  // TODO: move to upper-level func.
   auto zmm0 = _mm512_loadu_ps(srcptr);
   auto zmm1 = _mm512_loadu_ps(srcptr + 1 * ld_src);
   auto zmm2 = _mm512_loadu_ps(srcptr + 2 * ld_src);
@@ -912,14 +911,14 @@ inline void simd_f32_nf4_quantize_8x16(const float* srcptr, int8_t* dstptr, int 
   auto mask5 = _mm512_cmplt_ps_mask(zmm5, zmm_v0);
   auto mask6 = _mm512_cmplt_ps_mask(zmm6, zmm_v0);
   auto mask7 = _mm512_cmplt_ps_mask(zmm7, zmm_v0);
-  xmm0 = _mm_mask_blend_epi8(mask0, xmm0, _mm_loadu_si128((const __m128i*)broadcast_nf4_quantv.data()));
-  xmm1 = _mm_mask_blend_epi8(mask1, xmm1, _mm_loadu_si128((const __m128i*)broadcast_nf4_quantv.data()));
-  xmm2 = _mm_mask_blend_epi8(mask2, xmm2, _mm_loadu_si128((const __m128i*)broadcast_nf4_quantv.data()));
-  xmm3 = _mm_mask_blend_epi8(mask3, xmm3, _mm_loadu_si128((const __m128i*)broadcast_nf4_quantv.data()));
-  xmm4 = _mm_mask_blend_epi8(mask4, xmm4, _mm_loadu_si128((const __m128i*)broadcast_nf4_quantv.data()));
-  xmm5 = _mm_mask_blend_epi8(mask5, xmm5, _mm_loadu_si128((const __m128i*)broadcast_nf4_quantv.data()));
-  xmm6 = _mm_mask_blend_epi8(mask6, xmm6, _mm_loadu_si128((const __m128i*)broadcast_nf4_quantv.data()));
-  xmm7 = _mm_mask_blend_epi8(mask7, xmm7, _mm_loadu_si128((const __m128i*)broadcast_nf4_quantv.data()));
+  xmm0 = _mm_mask_blend_epi8(mask0, xmm0, _mm_loadu_si128((const __m128i*)broadcast_nf4_v));
+  xmm1 = _mm_mask_blend_epi8(mask1, xmm1, _mm_loadu_si128((const __m128i*)broadcast_nf4_v));
+  xmm2 = _mm_mask_blend_epi8(mask2, xmm2, _mm_loadu_si128((const __m128i*)broadcast_nf4_v));
+  xmm3 = _mm_mask_blend_epi8(mask3, xmm3, _mm_loadu_si128((const __m128i*)broadcast_nf4_v));
+  xmm4 = _mm_mask_blend_epi8(mask4, xmm4, _mm_loadu_si128((const __m128i*)broadcast_nf4_v));
+  xmm5 = _mm_mask_blend_epi8(mask5, xmm5, _mm_loadu_si128((const __m128i*)broadcast_nf4_v));
+  xmm6 = _mm_mask_blend_epi8(mask6, xmm6, _mm_loadu_si128((const __m128i*)broadcast_nf4_v));
+  xmm7 = _mm_mask_blend_epi8(mask7, xmm7, _mm_loadu_si128((const __m128i*)broadcast_nf4_v));
   zmm0 = _mm512_mask_add_ps(zmm0, mask0, zmm0, avoid_double_cmp);
   zmm1 = _mm512_mask_add_ps(zmm1, mask1, zmm1, avoid_double_cmp);
   zmm2 = _mm512_mask_add_ps(zmm2, mask2, zmm2, avoid_double_cmp);
@@ -947,22 +946,14 @@ inline void simd_f32_nf4_quantize_8x16(const float* srcptr, int8_t* dstptr, int 
     mask5 = _mm512_cmplt_ps_mask(zmm13, zmm_v0);
     mask6 = _mm512_cmplt_ps_mask(zmm14, zmm_v0);
     mask7 = _mm512_cmplt_ps_mask(zmm15, zmm_v0);
-    xmm0 =
-        _mm_mask_blend_epi8(mask0, xmm0, _mm_loadu_si128((const __m128i*)(broadcast_nf4_quantv.data() + (i + 1) * 16)));
-    xmm1 =
-        _mm_mask_blend_epi8(mask1, xmm1, _mm_loadu_si128((const __m128i*)(broadcast_nf4_quantv.data() + (i + 1) * 16)));
-    xmm2 =
-        _mm_mask_blend_epi8(mask2, xmm2, _mm_loadu_si128((const __m128i*)(broadcast_nf4_quantv.data() + (i + 1) * 16)));
-    xmm3 =
-        _mm_mask_blend_epi8(mask3, xmm3, _mm_loadu_si128((const __m128i*)(broadcast_nf4_quantv.data() + (i + 1) * 16)));
-    xmm4 =
-        _mm_mask_blend_epi8(mask4, xmm4, _mm_loadu_si128((const __m128i*)(broadcast_nf4_quantv.data() + (i + 1) * 16)));
-    xmm5 =
-        _mm_mask_blend_epi8(mask5, xmm5, _mm_loadu_si128((const __m128i*)(broadcast_nf4_quantv.data() + (i + 1) * 16)));
-    xmm6 =
-        _mm_mask_blend_epi8(mask6, xmm6, _mm_loadu_si128((const __m128i*)(broadcast_nf4_quantv.data() + (i + 1) * 16)));
-    xmm7 =
-        _mm_mask_blend_epi8(mask7, xmm7, _mm_loadu_si128((const __m128i*)(broadcast_nf4_quantv.data() + (i + 1) * 16)));
+    xmm0 = _mm_mask_blend_epi8(mask0, xmm0, _mm_loadu_si128((const __m128i*)(broadcast_nf4_v + (i + 1) * 16)));
+    xmm1 = _mm_mask_blend_epi8(mask1, xmm1, _mm_loadu_si128((const __m128i*)(broadcast_nf4_v + (i + 1) * 16)));
+    xmm2 = _mm_mask_blend_epi8(mask2, xmm2, _mm_loadu_si128((const __m128i*)(broadcast_nf4_v + (i + 1) * 16)));
+    xmm3 = _mm_mask_blend_epi8(mask3, xmm3, _mm_loadu_si128((const __m128i*)(broadcast_nf4_v + (i + 1) * 16)));
+    xmm4 = _mm_mask_blend_epi8(mask4, xmm4, _mm_loadu_si128((const __m128i*)(broadcast_nf4_v + (i + 1) * 16)));
+    xmm5 = _mm_mask_blend_epi8(mask5, xmm5, _mm_loadu_si128((const __m128i*)(broadcast_nf4_v + (i + 1) * 16)));
+    xmm6 = _mm_mask_blend_epi8(mask6, xmm6, _mm_loadu_si128((const __m128i*)(broadcast_nf4_v + (i + 1) * 16)));
+    xmm7 = _mm_mask_blend_epi8(mask7, xmm7, _mm_loadu_si128((const __m128i*)(broadcast_nf4_v + (i + 1) * 16)));
     zmm0 = _mm512_mask_add_ps(zmm0, mask0, zmm0, avoid_double_cmp);
     zmm1 = _mm512_mask_add_ps(zmm1, mask1, zmm1, avoid_double_cmp);
     zmm2 = _mm512_mask_add_ps(zmm2, mask2, zmm2, avoid_double_cmp);
@@ -997,12 +988,13 @@ inline JBLAS_CODE quantize_f32_f4_rowblock(const float* srcptr, int8_t* dstptr, 
   assert(blocksize % 8 == 0);
   assert(col % 16 == 0);
   assert(row % blocksize == 0);
+  constexpr auto broadcast_nf4_quantv = broadcast<16>(nf4_simd_quant_v);  // TODO: move to upper-level func.
   for (int i = 0; i < col; i += 16) {
     int j = 0;
     for (; j < row; j += blocksize) {
       calc_blkx16_scale(srcptr + j * ld_src + i, blocksize, ld_src, scales + j / blocksize * ld_dst);
       simd_f32_nf4_quantize_8x16(srcptr + j * ld_src + i, dstptr + j * ld_dst + i, ld_src, ld_dst,
-                                 scales + j / blocksize * ld_dst);
+                                 broadcast_nf4_quantv.data(), scales + j / blocksize * ld_dst);
     }
   }
   return JblasSuccess;
