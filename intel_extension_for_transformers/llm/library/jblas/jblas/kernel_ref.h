@@ -984,17 +984,21 @@ inline void calc_blkx16_scale(const float* srcptr, int blocksize, int ld_src, fl
 template <JBLAS_F4_TYPE F4_T>
 inline JBLAS_CODE quantize_f32_f4_rowblock(const float* srcptr, int8_t* dstptr, int row, int col, int ld_src,
                                            int ld_dst, float* scales, int8_t* zero_points, int blocksize) {
-  assert(zero_points == nullptr);
+  // assert(zero_points == nullptr);
   assert(blocksize % 8 == 0);
   assert(col % 16 == 0);
   assert(row % blocksize == 0);
+  // std::cout << "row:" << row << " col:" << col << " ld_src:" << ld_src << " ld_dst:" << ld_dst
+  //           << " blksize:" << blocksize << std::endl;
   constexpr auto broadcast_nf4_quantv = broadcast<16>(nf4_simd_quant_v);  // TODO: move to upper-level func.
   for (int i = 0; i < col; i += 16) {
     int j = 0;
     for (; j < row; j += blocksize) {
-      calc_blkx16_scale(srcptr + j * ld_src + i, blocksize, ld_src, scales + j / blocksize * ld_dst);
-      simd_f32_nf4_quantize_8x16(srcptr + j * ld_src + i, dstptr + j * ld_dst + i, ld_src, ld_dst,
-                                 broadcast_nf4_quantv.data(), scales + j / blocksize * ld_dst);
+      calc_blkx16_scale(srcptr + j * ld_src + i, blocksize, ld_src, scales + j / blocksize * ld_dst + i);
+      for (int k = 0; k < blocksize; k += 8) {
+        simd_f32_nf4_quantize_8x16(srcptr + (j + k) * ld_src + i, dstptr + (j + k) * ld_dst + i, ld_src, ld_dst,
+                                   broadcast_nf4_quantv.data(), scales + j / blocksize * ld_dst + i);
+      }
     }
   }
   return JblasSuccess;

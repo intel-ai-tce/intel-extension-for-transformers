@@ -14,6 +14,7 @@
 #pragma once
 #include "jit_blas_wrapper.h"
 #include "kernel_wrapper.h"
+#include <chrono>
 
 namespace jblas {
 namespace prologue {
@@ -154,9 +155,22 @@ class WeightS8ScaleFp32 {
 
   // from K*N fp32 weight to packed N//NtilexKPadxNTile weight
   virtual void packTransposeWeight(const int N, const int K, const float* B, const int ldb, void* stor) {
-    utils::aligned_vector<float> B_NT(N * K);
-    prologue::gemm::transposeWeight<float, ISA_T>(N, K, B, ldb, B_NT.data(), N);
-    packWeight(N, K, B_NT.data(), N, stor);
+    // utils::aligned_vector<float> B_NT(N * K);
+    // prologue::gemm::transposeWeight<float, ISA_T>(N, K, B, ldb, B_NT.data(), N);
+    // packWeight(N, K, B_NT.data(), N, stor);
+
+    float* B_NT = (float*)aligned_alloc(64, N * K * 4);
+    using namespace std::chrono;
+    auto m_start = high_resolution_clock::now();
+    prologue::gemm::transposeWeight<float, ISA_T>(N, K, B, ldb, B_NT, N);
+    auto m_end = high_resolution_clock::now();
+    auto cost = duration_cast<nanoseconds>(m_end - m_start).count() / 1e6;
+    std::cout << "trans cost:" << cost << "ms" << std::endl;
+    m_start = m_end;
+    packWeight(N, K, B_NT, N, stor);
+    m_end = high_resolution_clock::now();
+    std::cout << "packwei cost:" << cost << "ms" << std::endl;
+    free(B_NT);
   }
 
   // from packed N//NtilexKPadxNTile int8 weight to KxN f32 weight
@@ -168,14 +182,23 @@ class WeightS8ScaleFp32 {
 
   // from KxN f32 weight to packed N//NtilexKPadxNTile int8 weight
   virtual void packWeight(const int N, const int K, const float* B, const int ldb, void* stor) {
-    utils::aligned_vector<int8_t> tmpq(N * K);
+    // utils::aligned_vector<int8_t> tmpq(N * K);
     auto ptr = reinterpret_cast<StorageWeight*>(stor);
     int nk_scale = utils::updiv(K, ptr->mBlockSize);
     auto ssize = (size_t)N * nk_scale;
-    utils::avector<float> Tscales(ssize);
-    utils::avector<int8_t> Tzps(ptr->mIsAsym ? ssize : 0);
-    quantizeWeight(N, K, B, ldb, ptr->mBlockSize, tmpq.data(), Tscales.data(), Tzps.data());
-    packQWeight(N, K, tmpq.data(), ldb, Tscales.data(), Tzps.data(), stor);
+    // utils::avector<float> Tscales(ssize);
+    // utils::avector<int8_t> Tzps(ptr->mIsAsym ? ssize : 0);
+    // quantizeWeight(N, K, B, ldb, ptr->mBlockSize, tmpq.data(), Tscales.data(), Tzps.data());
+    // packQWeight(N, K, tmpq.data(), ldb, Tscales.data(), Tzps.data(), stor);
+
+    int8_t* tmpq = (int8_t*)aligned_alloc(64, N * K);
+    float* Tscales = (float*)aligned_alloc(64, ssize * 4);
+    // int8_t* Tzps = (int8_t*)malloc(ptr->mIsAsym ? ssize : 0);
+    quantizeWeight(N, K, B, ldb, ptr->mBlockSize, tmpq, Tscales, nullptr);
+    packQWeight(N, K, tmpq, ldb, Tscales, nullptr, stor);
+    free(tmpq);
+    free(Tscales);
+    // free(Tzps);
   }
 
   virtual void unpackWeight(const int N, const int K, void* stor, float* B, const int ldb) {
@@ -364,7 +387,9 @@ class WeightS8ScaleFp32 {
     omp_set_num_threads(cb.mNumThreads);
 #pragma omp parallel
     {
+      // for (int tidx = 0; tidx < cb.mNumThreads; tidx++) {
       int tidx = omp_get_thread_num();
+      // std::cout << "core" << tidx << std::endl;
       int colidx, rowidx, rowsize, colsize;
       _para.getIndex(tidx, &rowidx, &colidx, &rowsize, &colsize);
       if (rowsize > 0 && colsize > 0) {
@@ -946,10 +971,15 @@ class WeightF4ScaleFp32 : public WeightS4ScaleFp32<_GemmCore_T, ISA_T, S4_CLIP> 
         std::memset(stor->mSPtr + i * stor->mNPad, 0, stor->mNPad * sizeof(stor->mSPtr[0]));
       }
     }
-    utils::avector<int8_t> reorded(stor->mKPad * stor->mNPad);
-    WeightS8ScaleFp32<_GemmCore_T, ISA_T>::reorderWeight(N, K, B, ldb, reorded.data());
-    WeightS4ScaleFp32<_GemmCore_T, ISA_T, S4_CLIP>::compressWeight(stor->mNPad, stor->mKPad, reorded.data(),
-                                                                   stor->mNPad, stor->WPtr());
+    // utils::avector<int8_t> reorded(stor->mKPad * stor->mNPad);
+    int8_t* reorded = (int8_t*)aligned_alloc(64, stor->mKPad * stor->mNPad);
+    // WeightS8ScaleFp32<_GemmCore_T, ISA_T>::reorderWeight(N, K, B, ldb, reorded.data());
+    // WeightS4ScaleFp32<_GemmCore_T, ISA_T, S4_CLIP>::compressWeight(stor->mNPad, stor->mKPad, reorded.data(),
+    //                                                                stor->mNPad, stor->WPtr());
+    WeightS8ScaleFp32<_GemmCore_T, ISA_T>::reorderWeight(N, K, B, ldb, reorded);
+    WeightS4ScaleFp32<_GemmCore_T, ISA_T, S4_CLIP>::compressWeight(stor->mNPad, stor->mKPad, reorded, stor->mNPad,
+                                                                   stor->WPtr());
+    free(reorded);
   }
 
   virtual inline JBLAS_CODE getWeight(float** dstptr, int* dststep, int k_size, int n_size, int k_offset, int n_offset,

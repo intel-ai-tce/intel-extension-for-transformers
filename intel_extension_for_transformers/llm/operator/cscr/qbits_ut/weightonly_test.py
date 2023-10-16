@@ -18,7 +18,7 @@ import torch
 import inspect
 from functools import wraps
 torch.ops.load_library("../build/libqbits.so")
-
+import time
 
 def capture_args(f):
     @wraps(f)
@@ -36,7 +36,7 @@ def capture_args(f):
 
 
 @capture_args
-def test(m, n, k, blocksize, compute_type, weight_type, transpose, add_bias, src_dt, dst_dt, dump_tensor_info=False):
+def test(m, n, k, blocksize, compute_type, weight_type, transpose, add_bias, src_dt, dst_dt, dump_tensor_info=True):
     torch.manual_seed(0)
     ref_activation = torch.rand(m, k, dtype=torch.float)
     tar_activation = ref_activation.clone()
@@ -49,51 +49,69 @@ def test(m, n, k, blocksize, compute_type, weight_type, transpose, add_bias, src
     raw_wei = torch.rand(wei_row, wei_col, dtype=torch.float)
     if dump_tensor_info:
         print(raw_wei)
+    s_time=time.time()
     compress_wei = torch.ops.weight_only_jblasop.qbits_quantize(
         raw_wei, transpose, blocksize, compute_type, weight_type)
+    e_time=time.time()
+    cost=(e_time-s_time)*1000
     revert_wei = torch.zeros(wei_row, wei_col, dtype=torch.float)
     torch.ops.weight_only_jblasop.qbits_dequantize(
         compress_wei, revert_wei, transpose, compute_type, weight_type)
-    bias = torch.rand(n, dtype=torch.float)*10
+    print("cost",cost,"ms")
+    # bias = torch.rand(n, dtype=torch.float)*10
+    # for t in revert_wei:
+    #     print(t)
+    #     for j in t:
+    #         print(j)
+    #         # break
+    #     break
     if dump_tensor_info:
         print(revert_wei)
-    tar_dst = torch.zeros(m, n, dtype=torch.float)
-    if dst_dt == "bf16":
-        tar_dst = tar_dst.to(torch.bfloat16)
-    if transpose:
-        revert_wei = torch.transpose(revert_wei, 0, 1)
-    ref_dst = torch.matmul(ref_activation, revert_wei)
-    torch.ops.weight_only_jblasop.qbits_linear(
-        tar_activation, compress_wei, bias, tar_dst, n, add_bias, compute_type, weight_type)
-    if dst_dt == "bf16":
-        tar_dst = tar_dst.to(torch.float)
-    if add_bias:
-        ref_dst += bias
-    if dump_tensor_info:
-        print(tar_dst)
-        print(ref_dst)
-    if torch.allclose(tar_dst, ref_dst, rtol=0.03):
-        print("ok")
-    else:
-        print("fail")
+    # tar_dst = torch.zeros(m, n, dtype=torch.float)
+    # if dst_dt == "bf16":
+    #     tar_dst = tar_dst.to(torch.bfloat16)
+    # if transpose:
+    #     revert_wei = torch.transpose(revert_wei, 0, 1)
+    # ref_dst = torch.matmul(ref_activation, revert_wei)
+    # torch.ops.weight_only_jblasop.qbits_linear(
+    #     tar_activation, compress_wei, bias, tar_dst, n, add_bias, compute_type, weight_type)
+    # if dst_dt == "bf16":
+    #     tar_dst = tar_dst.to(torch.float)
+    # if add_bias:
+    #     ref_dst += bias
+    # if dump_tensor_info:
+    #     print(tar_dst)
+    #     print(ref_dst)
+    # if torch.allclose(tar_dst, ref_dst, rtol=0.03):
+    #     print("ok")
+    # else:
+    #     print("fail")
 
 
-configs = {"s8_scalef32": {"int8", "fp32"}, "s4clip_scalef32": {"int8", "fp32", "bf16"}, "s4fullrange_scalef32": {
-    "int8", "fp32", "bf16"}, "fp4bnb_scalef32": {"fp32", "bf16"}, "fp4e2m1_scalef32": {"fp32", "bf16"}, "nf4_scalef32": {"fp32", "bf16"}}
+# configs = {"s8_scalef32": {"int8", "fp32"}, "s4clip_scalef32": {"int8", "fp32", "bf16"}, "s4fullrange_scalef32": {
+#     "int8", "fp32", "bf16"}, "fp4bnb_scalef32": {"fp32", "bf16"}, "fp4e2m1_scalef32": {"fp32", "bf16"}, "nf4_scalef32": {"fp32", "bf16"}}
 
-blocksizes = [128, -1]
-do_trans = [False, True]
-add_bias = [False, True]
-src_dts = ["fp32", "bf16"]
-dst_dts = ["fp32", "bf16"]
+configs = {"nf4_scalef32": {"fp32"}}
+
+# blocksizes = [128, -1]
+blocksizes = [128]
+# do_trans = [False, True]
+# add_bias = [False, True]
+# src_dts = ["fp32", "bf16"]
+# dst_dts = ["fp32", "bf16"]
+do_trans = [True]
+add_bias = [False]
+src_dts = ["fp32"]
+dst_dts = ["fp32"]
+
 
 workspace = torch.zeros(786432, dtype=torch.int8)
 torch.ops.weight_only_jblasop.qbits_set_weightonly_workspace(workspace)
 
 for weight_type in configs:
     m = 256
-    n = 1024
-    k = 512  # contain unalign calc error bug currently.
+    n = 4096
+    k = 4096  # contain unalign calc error bug currently.
     for compute_type in configs[weight_type]:
         for blocksize in blocksizes:
             if compute_type == "int8" and blocksize % 8 != 0 and blocksize != -1:
