@@ -12,8 +12,14 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 #pragma once
+#include <emmintrin.h>
+#include <immintrin.h>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
 #include <vector>
 
+#include "jblas/jit_blas.h"
 #include "jit_blas_utils.h"
 
 namespace jblas {
@@ -850,50 +856,202 @@ inline JBLAS_CODE quantize_f32_sign_int_rowblock(const float* srcptr, int8_t* ds
   }
   return JblasSuccess;
 }
+static float nf4_quant_sub_helper[] = {0.23746347, 0.38810113, 0.50841697, 0.61348899, 0.71018467,
+                                       0.80257138, 0.88788655, 0.96835165, 1.05161765, 1.14011017,
+                                       1.23740894, 1.34975982, 1.49088332, 1.70957482, 2.0};
+constexpr static int8_t nf4_simd_quant_v[] = {0b0111, 0b0001, 0b0010, 0b0011, 0b0100, 0b0101, 0b0110, 0b0000,
+                                              0b1000, 0b1001, 0b1010, 0b1011, 0b1100, 0b1101, 0b1110, 0b1111};
+
+template <std::size_t N, std::size_t... I>
+constexpr auto broadcast(const int8_t* arr, std::index_sequence<I...>) {
+  return std::array<int8_t, N * 16>{(arr[I / 16])...};
+}
+
+template <std::size_t N>
+constexpr auto broadcast(const int8_t* arr) {
+  return broadcast<N>(arr, std::make_index_sequence<N * 16>{});
+}
+
+inline void simd_f32_nf4_quantize_8x16(const float* srcptr, int8_t* dstptr, int ld_src, int ld_dst,
+                                       float* scales = NULL) {
+  auto zmm_scale = _mm512_rcp14_ps(_mm512_loadu_ps(scales));
+  auto zp = _mm512_set1_ps(0.8480964004993439);
+  auto avoid_double_cmp = _mm512_set1_ps(100.f);
+  constexpr auto broadcast_nf4_quantv = broadcast<16>(nf4_simd_quant_v);  // TODO: move to upper-level func.
+  auto zmm0 = _mm512_loadu_ps(srcptr);
+  auto zmm1 = _mm512_loadu_ps(srcptr + 1 * ld_src);
+  auto zmm2 = _mm512_loadu_ps(srcptr + 2 * ld_src);
+  auto zmm3 = _mm512_loadu_ps(srcptr + 3 * ld_src);
+  auto zmm4 = _mm512_loadu_ps(srcptr + 4 * ld_src);
+  auto zmm5 = _mm512_loadu_ps(srcptr + 5 * ld_src);
+  auto zmm6 = _mm512_loadu_ps(srcptr + 6 * ld_src);
+  auto zmm7 = _mm512_loadu_ps(srcptr + 7 * ld_src);
+  zmm0 = _mm512_mul_ps(zmm0, zmm_scale);
+  zmm1 = _mm512_mul_ps(zmm1, zmm_scale);
+  zmm2 = _mm512_mul_ps(zmm2, zmm_scale);
+  zmm3 = _mm512_mul_ps(zmm3, zmm_scale);
+  zmm4 = _mm512_mul_ps(zmm4, zmm_scale);
+  zmm5 = _mm512_mul_ps(zmm5, zmm_scale);
+  zmm6 = _mm512_mul_ps(zmm6, zmm_scale);
+  zmm7 = _mm512_mul_ps(zmm7, zmm_scale);
+  zmm0 = _mm512_add_ps(zmm0, zp);
+  zmm1 = _mm512_add_ps(zmm1, zp);
+  zmm2 = _mm512_add_ps(zmm2, zp);
+  zmm3 = _mm512_add_ps(zmm3, zp);
+  zmm4 = _mm512_add_ps(zmm4, zp);
+  zmm5 = _mm512_add_ps(zmm5, zp);
+  zmm6 = _mm512_add_ps(zmm6, zp);
+  zmm7 = _mm512_add_ps(zmm7, zp);
+  __m128i xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7;
+  auto zmm_v0 = _mm512_set1_ps(0.f);
+  auto mask0 = _mm512_cmplt_ps_mask(zmm0, zmm_v0);
+  auto mask1 = _mm512_cmplt_ps_mask(zmm1, zmm_v0);
+  auto mask2 = _mm512_cmplt_ps_mask(zmm2, zmm_v0);
+  auto mask3 = _mm512_cmplt_ps_mask(zmm3, zmm_v0);
+  auto mask4 = _mm512_cmplt_ps_mask(zmm4, zmm_v0);
+  auto mask5 = _mm512_cmplt_ps_mask(zmm5, zmm_v0);
+  auto mask6 = _mm512_cmplt_ps_mask(zmm6, zmm_v0);
+  auto mask7 = _mm512_cmplt_ps_mask(zmm7, zmm_v0);
+  xmm0 = _mm_mask_blend_epi8(mask0, xmm0, _mm_loadu_si128((const __m128i*)broadcast_nf4_quantv.data()));
+  xmm1 = _mm_mask_blend_epi8(mask1, xmm1, _mm_loadu_si128((const __m128i*)broadcast_nf4_quantv.data()));
+  xmm2 = _mm_mask_blend_epi8(mask2, xmm2, _mm_loadu_si128((const __m128i*)broadcast_nf4_quantv.data()));
+  xmm3 = _mm_mask_blend_epi8(mask3, xmm3, _mm_loadu_si128((const __m128i*)broadcast_nf4_quantv.data()));
+  xmm4 = _mm_mask_blend_epi8(mask4, xmm4, _mm_loadu_si128((const __m128i*)broadcast_nf4_quantv.data()));
+  xmm5 = _mm_mask_blend_epi8(mask5, xmm5, _mm_loadu_si128((const __m128i*)broadcast_nf4_quantv.data()));
+  xmm6 = _mm_mask_blend_epi8(mask6, xmm6, _mm_loadu_si128((const __m128i*)broadcast_nf4_quantv.data()));
+  xmm7 = _mm_mask_blend_epi8(mask7, xmm7, _mm_loadu_si128((const __m128i*)broadcast_nf4_quantv.data()));
+  zmm0 = _mm512_mask_add_ps(zmm0, mask0, zmm0, avoid_double_cmp);
+  zmm1 = _mm512_mask_add_ps(zmm1, mask1, zmm1, avoid_double_cmp);
+  zmm2 = _mm512_mask_add_ps(zmm2, mask2, zmm2, avoid_double_cmp);
+  zmm3 = _mm512_mask_add_ps(zmm3, mask3, zmm3, avoid_double_cmp);
+  zmm4 = _mm512_mask_add_ps(zmm4, mask4, zmm4, avoid_double_cmp);
+  zmm5 = _mm512_mask_add_ps(zmm5, mask5, zmm5, avoid_double_cmp);
+  zmm6 = _mm512_mask_add_ps(zmm6, mask6, zmm6, avoid_double_cmp);
+  zmm7 = _mm512_mask_add_ps(zmm7, mask7, zmm7, avoid_double_cmp);
+  for (int i = 0; i < 15; i++) {
+    auto sub_v = _mm512_set1_ps(nf4_quant_sub_helper[i]);
+    // TODO sub sub_v and store to series new zmms.
+    auto zmm8 = _mm512_sub_ps(zmm0, sub_v);
+    auto zmm9 = _mm512_sub_ps(zmm1, sub_v);
+    auto zmm10 = _mm512_sub_ps(zmm2, sub_v);
+    auto zmm11 = _mm512_sub_ps(zmm3, sub_v);
+    auto zmm12 = _mm512_sub_ps(zmm4, sub_v);
+    auto zmm13 = _mm512_sub_ps(zmm5, sub_v);
+    auto zmm14 = _mm512_sub_ps(zmm6, sub_v);
+    auto zmm15 = _mm512_sub_ps(zmm7, sub_v);
+    mask0 = _mm512_cmplt_ps_mask(zmm8, zmm_v0);
+    mask1 = _mm512_cmplt_ps_mask(zmm9, zmm_v0);
+    mask2 = _mm512_cmplt_ps_mask(zmm10, zmm_v0);
+    mask3 = _mm512_cmplt_ps_mask(zmm11, zmm_v0);
+    mask4 = _mm512_cmplt_ps_mask(zmm12, zmm_v0);
+    mask5 = _mm512_cmplt_ps_mask(zmm13, zmm_v0);
+    mask6 = _mm512_cmplt_ps_mask(zmm14, zmm_v0);
+    mask7 = _mm512_cmplt_ps_mask(zmm15, zmm_v0);
+    xmm0 =
+        _mm_mask_blend_epi8(mask0, xmm0, _mm_loadu_si128((const __m128i*)(broadcast_nf4_quantv.data() + (i + 1) * 16)));
+    xmm1 =
+        _mm_mask_blend_epi8(mask1, xmm1, _mm_loadu_si128((const __m128i*)(broadcast_nf4_quantv.data() + (i + 1) * 16)));
+    xmm2 =
+        _mm_mask_blend_epi8(mask2, xmm2, _mm_loadu_si128((const __m128i*)(broadcast_nf4_quantv.data() + (i + 1) * 16)));
+    xmm3 =
+        _mm_mask_blend_epi8(mask3, xmm3, _mm_loadu_si128((const __m128i*)(broadcast_nf4_quantv.data() + (i + 1) * 16)));
+    xmm4 =
+        _mm_mask_blend_epi8(mask4, xmm4, _mm_loadu_si128((const __m128i*)(broadcast_nf4_quantv.data() + (i + 1) * 16)));
+    xmm5 =
+        _mm_mask_blend_epi8(mask5, xmm5, _mm_loadu_si128((const __m128i*)(broadcast_nf4_quantv.data() + (i + 1) * 16)));
+    xmm6 =
+        _mm_mask_blend_epi8(mask6, xmm6, _mm_loadu_si128((const __m128i*)(broadcast_nf4_quantv.data() + (i + 1) * 16)));
+    xmm7 =
+        _mm_mask_blend_epi8(mask7, xmm7, _mm_loadu_si128((const __m128i*)(broadcast_nf4_quantv.data() + (i + 1) * 16)));
+    zmm0 = _mm512_mask_add_ps(zmm0, mask0, zmm0, avoid_double_cmp);
+    zmm1 = _mm512_mask_add_ps(zmm1, mask1, zmm1, avoid_double_cmp);
+    zmm2 = _mm512_mask_add_ps(zmm2, mask2, zmm2, avoid_double_cmp);
+    zmm3 = _mm512_mask_add_ps(zmm3, mask3, zmm3, avoid_double_cmp);
+    zmm4 = _mm512_mask_add_ps(zmm4, mask4, zmm4, avoid_double_cmp);
+    zmm5 = _mm512_mask_add_ps(zmm5, mask5, zmm5, avoid_double_cmp);
+    zmm6 = _mm512_mask_add_ps(zmm6, mask6, zmm6, avoid_double_cmp);
+    zmm7 = _mm512_mask_add_ps(zmm7, mask7, zmm7, avoid_double_cmp);
+  }
+  _mm_storeu_si128((__m128i*)(dstptr), xmm0);
+  _mm_storeu_si128((__m128i*)(dstptr + 1 * ld_dst), xmm1);
+  _mm_storeu_si128((__m128i*)(dstptr + 2 * ld_dst), xmm2);
+  _mm_storeu_si128((__m128i*)(dstptr + 3 * ld_dst), xmm3);
+  _mm_storeu_si128((__m128i*)(dstptr + 4 * ld_dst), xmm4);
+  _mm_storeu_si128((__m128i*)(dstptr + 5 * ld_dst), xmm5);
+  _mm_storeu_si128((__m128i*)(dstptr + 6 * ld_dst), xmm6);
+  _mm_storeu_si128((__m128i*)(dstptr + 7 * ld_dst), xmm7);
+}
+
+inline void calc_blkx16_scale(const float* srcptr, int blocksize, int ld_src, float* scales) {
+  auto absmax = _mm512_set1_ps(0.f);
+  for (int i = 0; i < blocksize; i++) {
+    absmax = _mm512_range_ps(absmax, _mm512_loadu_ps(srcptr + i * ld_src), 7);
+  }
+  _mm512_storeu_ps(scales, absmax);
+}
+
 template <JBLAS_F4_TYPE F4_T>
 inline JBLAS_CODE quantize_f32_f4_rowblock(const float* srcptr, int8_t* dstptr, int row, int col, int ld_src,
                                            int ld_dst, float* scales, int8_t* zero_points, int blocksize) {
-  int raw_blocksize = blocksize;
-  for (int i = 0; i < col; i++) {
-    int align_row_loop = row / blocksize * blocksize;
+  assert(zero_points == nullptr);
+  assert(blocksize % 8 == 0);
+  assert(col % 16 == 0);
+  assert(row % blocksize == 0);
+  for (int i = 0; i < col; i += 16) {
     int j = 0;
-    auto calc_store_scale_and_quantv_sym = [&](int blocksize) {
-      float absmax = std::numeric_limits<float>::min();
-      for (size_t ij = 0; ij < blocksize; ij++) {
-        absmax = std::max(absmax, std::abs(srcptr[(j + ij) * ld_src + i]));
-      }
-      scales[j / raw_blocksize * ld_dst + i] = absmax;
-      for (size_t ij = 0; ij < blocksize; ij++) {
-        dstptr[(j + ij) * ld_dst + i] = f4_quantize<F4_T>(srcptr[(j + ij) * ld_src + i] * (1.f / absmax));
-      }
-    };
-    auto calc_store_scale_and_quantv_asym = [&](int blocksize) {
-      float amax = 0;
-      float amin = 0;
-      for (size_t ij = 0; ij < blocksize; ij++) {
-        amax = std::max(amax, srcptr[(j + ij) * ld_src + i]);
-        amin = std::max(amax, srcptr[(j + ij) * ld_src + i]);
-      }
-      float scale = (amax - amin) / 2;
-      scales[j / raw_blocksize * ld_dst + i] = scale;
-      float fmedium = (amax + amin) / 2;
-      zero_points[j / raw_blocksize * ld_dst + i] = f4_quantize<F4_T>((0 - fmedium) * (1.f / scale));
-      for (size_t ij = 0; ij < blocksize; ij++) {
-        dstptr[(j + ij) * ld_dst + i] = f4_quantize<F4_T>((srcptr[(j + ij) * ld_src + i] - fmedium) * (1.f / scale));
-      }
-    };
-    auto dispatch_calc = [&](int blocksize) {
-      if (zero_points == nullptr) {
-        calc_store_scale_and_quantv_sym(blocksize);
-      } else {
-        calc_store_scale_and_quantv_asym(blocksize);
-      }
-    };
-    for (; j < align_row_loop; j += blocksize) dispatch_calc(blocksize);
-    if (j < row) dispatch_calc(row - align_row_loop);
+    for (; j < row; j += blocksize) {
+      calc_blkx16_scale(srcptr + j * ld_src + i, blocksize, ld_src, scales + j / blocksize * ld_dst);
+      simd_f32_nf4_quantize_8x16(srcptr + j * ld_src + i, dstptr + j * ld_dst + i, ld_src, ld_dst,
+                                 scales + j / blocksize * ld_dst);
+    }
   }
   return JblasSuccess;
 }
+
+// template <JBLAS_F4_TYPE F4_T>
+// inline JBLAS_CODE quantize_f32_f4_rowblock(const float* srcptr, int8_t* dstptr, int row, int col, int ld_src,
+//                                            int ld_dst, float* scales, int8_t* zero_points, int blocksize) {
+//   int raw_blocksize = blocksize;
+//   for (int i = 0; i < col; i++) {
+//     int align_row_loop = row / blocksize * blocksize;
+//     int j = 0;
+//     auto calc_store_scale_and_quantv_sym = [&](int blocksize) {
+//       float absmax = std::numeric_limits<float>::min();
+//       for (size_t ij = 0; ij < blocksize; ij++) {
+//         absmax = std::max(absmax, std::abs(srcptr[(j + ij) * ld_src + i]));
+//       }
+//       scales[j / raw_blocksize * ld_dst + i] = absmax;
+//       for (size_t ij = 0; ij < blocksize; ij++) {
+//         dstptr[(j + ij) * ld_dst + i] = f4_quantize<F4_T>(srcptr[(j + ij) * ld_src + i] * (1.f / absmax));
+//       }
+//     };
+//     auto calc_store_scale_and_quantv_asym = [&](int blocksize) {
+//       float amax = 0;
+//       float amin = 0;
+//       for (size_t ij = 0; ij < blocksize; ij++) {
+//         amax = std::max(amax, srcptr[(j + ij) * ld_src + i]);
+//         amin = std::max(amax, srcptr[(j + ij) * ld_src + i]);
+//       }
+//       float scale = (amax - amin) / 2;
+//       scales[j / raw_blocksize * ld_dst + i] = scale;
+//       float fmedium = (amax + amin) / 2;
+//       zero_points[j / raw_blocksize * ld_dst + i] = f4_quantize<F4_T>((0 - fmedium) * (1.f / scale));
+//       for (size_t ij = 0; ij < blocksize; ij++) {
+//         dstptr[(j + ij) * ld_dst + i] = f4_quantize<F4_T>((srcptr[(j + ij) * ld_src + i] - fmedium) * (1.f / scale));
+//       }
+//     };
+//     auto dispatch_calc = [&](int blocksize) {
+//       if (zero_points == nullptr) {
+//         calc_store_scale_and_quantv_sym(blocksize);
+//       } else {
+//         calc_store_scale_and_quantv_asym(blocksize);
+//       }
+//     };
+//     for (; j < align_row_loop; j += blocksize) dispatch_calc(blocksize);
+//     if (j < row) dispatch_calc(row - align_row_loop);
+//   }
+//   return JblasSuccess;
+// }
 
 inline JBLAS_CODE quantize_f32_u8_colblock(int row, int col, const float* srcptr, int ld_src, uint8_t* dstptr,
                                            int ld_dst, float* scales, int ld_scale, uint8_t* zps, int blocksize) {
