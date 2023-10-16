@@ -93,7 +93,7 @@ class Model:
         self.module.Model.quant_model(model_path = model_path,
                                     out_path = out_path, **kwargs)
 
-    def generate(self, input_ids, streamer=None, interactive=False, **kwargs):
+    def generate(self, input_ids, streamer=None, interactive=False, ingore_prompt=False, **kwargs):
         if self.model is None:
             self.init_from_bin(self.model_type, self.bin_file, **kwargs)
             self.generate_round = 0
@@ -102,18 +102,19 @@ class Model:
             self.generate_round = 0
 
         ret = [[]]
-        if self.generate_round == 0:
+        if self.generate_round == 0 and not ingore_prompt:
             ret = input_ids.tolist()
 
         # TODO support multi batch
         assert input_ids.shape[0] == 1, "Unsupport multi-batch input ids."
         if streamer:
-            if self.generate_round == 0:
+            if self.generate_round == 0 and not ingore_prompt:
                 streamer.put(input_ids)
             while not self.is_token_end():
                 out = self.model.generate(input_ids = input_ids.tolist()[0])
                 streamer.put(torch.tensor([out]))
                 ret[0].extend(out)
+            streamer.end()
         else:
             ret[0].extend(self.model.generate_tokens(input_ids = input_ids.tolist()[0]))
         
