@@ -56,7 +56,7 @@ class Model {
     if (ctx) model_free(ctx);
   }
   void init_model(const std::string& model_path, int n_predict, int batch_size, int ctx_size, int seed, int threads,
-                  float repeat_penalty, int num_beams, bool do_sample, int top_k, float top_p, float temperature);
+                  float repetition_penalty, int num_beams, bool do_sample, int top_k, float top_p, float temperature);
   void reinit();
   std::vector<int> generate(const std::vector<int>& input_ids);
   std::vector<int> generate_tokens(const std::vector<int>& input_ids);
@@ -82,7 +82,7 @@ class Model {
 };
 
 void Model::init_model(const std::string& model_path, int max_new_tokens, int batch_size, int ctx_size, int seed,
-                       int threads, float repeat_penalty, int num_beams, bool do_sample, int top_k, float top_p,
+                       int threads, float repetition_penalty, int num_beams, bool do_sample, int top_k, float top_p,
                        float temperature) {
 #ifdef MODEL_NAME
   params.model_name = MODEL_NAME;
@@ -94,7 +94,7 @@ void Model::init_model(const std::string& model_path, int max_new_tokens, int ba
   params.n_ctx = ctx_size;
   params.seed = seed;
   params.n_threads = threads;
-  params.repeat_penalty = repeat_penalty;
+  params.repeat_penalty = repetition_penalty;
   params.beam_size = num_beams;
   params.do_sample = do_sample;
   params.top_k = top_k;
@@ -355,7 +355,7 @@ PYBIND11_MODULE(baichuan_cpp, m)
       .def(py::init())
       .def("init_model", &Model::init_model, "initial model with model path and parameters", py::arg("model_path"),
            py::arg("max_new_tokens") = -1, py::arg("batch_size") = 512, py::arg("ctx_size") = 512, py::arg("seed") = -1,
-           py::arg("threads") = 8, py::arg("repeat_penalty") = 1.1f, py::arg("num_beams") = 1,
+           py::arg("threads") = 8, py::arg("repetition_penalty") = 1.1f, py::arg("num_beams") = 1,
            py::arg("do_sample") = false, py::arg("top_k") = 40, py::arg("top_p") = 0.95, py::arg("temperature") = 0.8)
       .def("generate", &Model::generate, "Generate token with input ids", py::arg("input_ids"))
       .def("generate_tokens", &Model::generate_tokens, "Generate tokens with input ids", py::arg("input_ids"))
