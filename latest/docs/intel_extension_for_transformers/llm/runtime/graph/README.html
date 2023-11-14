@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LLM Runtime &mdash; Intel® Extension for Transformers 0.1.dev1+g87b00d8 documentation</title>
+  <title>LLM Runtime &mdash; Intel® Extension for Transformers 0.1.dev1+gef2c479 documentation</title>
       <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../../_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="../../../../../_static/graphviz.css" type="text/css" />
@@ -92,13 +92,24 @@
 <ul class="simple">
 <li><p>Modular design to support new models</p></li>
 <li><p><a class="reference external" href="core/README.html">Highly optimized low precision kernels</a></p></li>
-<li><p>Utilize AMX, VNNI and AVX512F instruction set</p></li>
+<li><p>Utilize AMX, VNNI, AVX512F and AVX2 instruction set</p></li>
 <li><p>Support CPU (x86 platforms only) and initial (Intel) GPU</p></li>
 <li><p>Support 4bits and 8bits quantization</p></li>
 </ul>
 <blockquote>
 <div><p>LLM Runtime is under active development so APIs are subject to change.</p>
 </div></blockquote>
+<section id="supported-hardware">
+<h2>Supported Hardware<a class="headerlink" href="#supported-hardware" title="Link to this heading"></a></h2>
+<p>| Hardware | Optimization |
+|————-|:————-:|
+|Intel Xeon Scalable Processors | ✔ |
+|Intel Xeon CPU Max Series | ✔ |
+|Intel Core Processors | ✔ |
+|Intel Arc GPU Series | WIP |
+|Intel Data Center GPU Max Series | WIP |
+|Intel Gaudi2 | Not yet |</p>
+</section>
 <section id="supported-models">
 <h2>Supported Models<a class="headerlink" href="#supported-models" title="Link to this heading"></a></h2>
 <p>LLM Runtime supports the following models:</p>
@@ -116,7 +127,8 @@
 |<a class="reference external" href="https://huggingface.co/bigscience/bloomz-7b1">BLOOM-7B</a>| ✅ | ✅ |
 |<a class="reference external" href="https://huggingface.co/facebook/opt-125m">OPT-125m</a>, <a class="reference external" href="https://huggingface.co/facebook/opt-350m">OPT-350m</a>, <a class="reference external" href="https://huggingface.co/facebook/opt-1.3b">OPT-1.3B</a>, <a class="reference external" href="https://huggingface.co/facebook/opt-13b">OPT-13B</a>| ✅ | ✅ |
 |<a class="reference external" href="https://huggingface.co/THUDM/chatglm-6b">ChatGLM-6B</a>, <a class="reference external" href="https://huggingface.co/THUDM/chatglm2-6b">ChatGLM2-6B</a>| ✅ | ✅ |
-|<a class="reference external" href="https://huggingface.co/baichuan-inc/Baichuan-13B-Chat">Baichuan-13B-Chat</a>, <a class="reference external" href="https://huggingface.co/baichuan-inc/Baichuan2-13B-Chat">Baichuan2-13B-Chat</a>| ✅ | ✅ |</p>
+|<a class="reference external" href="https://huggingface.co/baichuan-inc/Baichuan-13B-Chat">Baichuan-13B-Chat</a>, <a class="reference external" href="https://huggingface.co/baichuan-inc/Baichuan2-13B-Chat">Baichuan2-13B-Chat</a>| ✅ | ✅ |
+|<a class="reference external" href="https://huggingface.co/mistralai/Mistral-7B-v0.1">Mistral-7B</a>| ✅ | ✅ |</p>
 </section>
 <section id="code-generation">
 <h3>Code Generation<a class="headerlink" href="#code-generation" title="Link to this heading"></a></h3>
@@ -128,14 +140,138 @@
 </section>
 <section id="how-to-use">
 <h2>How to Use<a class="headerlink" href="#how-to-use" title="Link to this heading"></a></h2>
-<section id="install-llm-runtime">
-<h3>1. Install LLM Runtime<a class="headerlink" href="#install-llm-runtime" title="Link to this heading"></a></h3>
+<p>There are two methods for utilizing the LLM runtime:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="#How-to-use-Transformer-based-API">Transformer-based API</a></p></li>
+<li><p><a class="reference external" href="#How-to-use-Straightforward-Python-script">Straightforward Python script</a></p></li>
+</ul>
+</section>
+<section id="how-to-use-transformer-based-api">
+<h2>How to use: Transformer-based API<a class="headerlink" href="#how-to-use-transformer-based-api" title="Link to this heading"></a></h2>
+<section id="install">
+<h3>1. Install<a class="headerlink" href="#install" title="Link to this heading"></a></h3>
+<p>Install from binary</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>intel-extension-for-transformers
+</pre></div>
+</div>
+</section>
+<section id="run-llm-with-transformer-based-api">
+<h3>2. Run LLM with Transformer-based API<a class="headerlink" href="#run-llm-with-transformer-based-api" title="Link to this heading"></a></h3>
+<p>You can use Python API to run Hugging Face model simply. Here is the sample code:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">AutoTokenizer</span><span class="p">,</span> <span class="n">TextStreamer</span>
+<span class="kn">from</span> <span class="nn">intel_extension_for_transformers.transformers</span> <span class="kn">import</span> <span class="n">AutoModelForCausalLM</span><span class="p">,</span> <span class="n">WeightOnlyQuantConfig</span>
+<span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;Intel/neural-chat-7b-v1-1&quot;</span>     <span class="c1"># Hugging Face model_id or local model</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">WeightOnlyQuantConfig</span><span class="p">(</span><span class="n">compute_dtype</span><span class="o">=</span><span class="s2">&quot;int8&quot;</span><span class="p">,</span> <span class="n">weight_dtype</span><span class="o">=</span><span class="s2">&quot;int4&quot;</span><span class="p">)</span>
+<span class="n">prompt</span> <span class="o">=</span> <span class="s2">&quot;Once upon a time, there existed a little girl,&quot;</span>
+
+<span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">trust_remote_code</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">inputs</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="p">(</span><span class="n">prompt</span><span class="p">,</span> <span class="n">return_tensors</span><span class="o">=</span><span class="s2">&quot;pt&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">input_ids</span>
+<span class="n">streamer</span> <span class="o">=</span> <span class="n">TextStreamer</span><span class="p">(</span><span class="n">tokenizer</span><span class="p">)</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">AutoModelForCausalLM</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">quantization_config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+<span class="n">outputs</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">streamer</span><span class="o">=</span><span class="n">streamer</span><span class="p">,</span> <span class="n">max_new_tokens</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>To enable <a class="reference external" href="./docs/infinite_inference.html">StreamingLLM for infinite inference</a>, here is the sample code:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">AutoTokenizer</span><span class="p">,</span> <span class="n">TextStreamer</span>
+<span class="kn">from</span> <span class="nn">intel_extension_for_transformers.transformers</span> <span class="kn">import</span> <span class="n">AutoModelForCausalLM</span><span class="p">,</span> <span class="n">WeightOnlyQuantConfig</span>
+<span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;Intel/neural-chat-7b-v1-1&quot;</span>     <span class="c1"># Hugging Face model_id or local model</span>
+<span class="n">woq_config</span> <span class="o">=</span> <span class="n">WeightOnlyQuantConfig</span><span class="p">(</span><span class="n">compute_dtype</span><span class="o">=</span><span class="s2">&quot;int8&quot;</span><span class="p">,</span> <span class="n">weight_dtype</span><span class="o">=</span><span class="s2">&quot;int4&quot;</span><span class="p">)</span>
+<span class="n">prompt</span> <span class="o">=</span> <span class="s2">&quot;Once upon a time, there existed a little girl,&quot;</span>
+
+<span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">trust_remote_code</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">inputs</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="p">(</span><span class="n">prompt</span><span class="p">,</span> <span class="n">return_tensors</span><span class="o">=</span><span class="s2">&quot;pt&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">input_ids</span>
+<span class="n">streamer</span> <span class="o">=</span> <span class="n">TextStreamer</span><span class="p">(</span><span class="n">tokenizer</span><span class="p">)</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">AutoModelForCausalLM</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">quantization_config</span><span class="o">=</span><span class="n">woq_config</span><span class="p">)</span>
+
+<span class="c1"># Paper: https://arxiv.org/pdf/2309.17453.pdf</span>
+<span class="c1"># Recommend n_keep=4 to do attention sinks (four initial tokens) and n_discard=-1 to drop half rencetly tokens when meet length threshold</span>
+<span class="n">outputs</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">streamer</span><span class="o">=</span><span class="n">streamer</span><span class="p">,</span> <span class="n">max_new_tokens</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">ctx_size</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">n_keep</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">n_discard</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>https://github.com/intel/intel-extension-for-transformers/assets/109187816/1698dcda-c9ec-4f44-b159-f4e9d67ab15b</p>
+<p>Argument description of generate function:
+| Argument          |  Type       | Description                                                                             |
+| ————–    | ———-  | ———————————————————————–                 |
+| inputs            | Lists[Int]  | Input ids after tokenizer                                                               |
+| streamer          | Class       | Streamer object that will be used to stream the generated sequences. (default: None)    |
+| interactive       | Bool        | Interactive mode, use history commands when True (default: False)                       |
+| ignore_prompt     | Bool        | Generate outputs w/o prompt (default: False)                                            |
+| max_new_tokens    | Int         | Number of tokens to predict (default: -1, -1 = infinity)                                |
+| batch_size        | Int         | Batch size for prompt processing (default: 512)                                         |
+| ctx_size          | Int         | Size of the prompt context (default: 512)                                               |
+| seed              | Int         | NG seed (default: -1, use random seed for &lt; 0)                                          |
+| threads           | Int         | Number of threads to use during computation (default: 8)                                |
+| repetition_penalty| Float       | Penalize repeat sequence of tokens (default: 1.1, 1.0 = disabled)                       |
+| num_beams         | Int         | Number of beams for beam_search (default: 1)                                            |
+| do_sample         | Int         | Whether or not to use sampling ; use greedy decoding otherwise. (default: False)        |
+| top_k             | Int         | Top-k sampling (default: 40, 0 = disabled)                                              |
+| top_p             | Int         | Top-p sampling (default: 0.95, 1.0 = disabled)                                          |
+| temperature       | Float       | Temperature (default: 0.8)                                                              |
+| min_new_tokens    | Int         | The minimum numbers of tokens to generate, ignoring the number of tokens in the prompt. |
+| length_penalty    | Float       | Exponential penalty to the length that is used with beam-based generation.              |
+| early_stopping    | Bool        | Controls the stopping condition for beam-based methods, like beam-search.               |
+| n_keep            | Int         | Number of tokens to keep from the initial prompt (default: 0, -1 = all)                 |
+| n_discard         | Int         | Number of tokens will be discarded (default: -1, -1 = half of tokens will be discarded) |
+| shift_roped_k     | Bool        | Use ring-buffer and thus do not re-computing after reaching ctx_size (default: False)   |</p>
+</section>
+<section id="multi-round-chat">
+<h3>3. Multi-Round Chat<a class="headerlink" href="#multi-round-chat" title="Link to this heading"></a></h3>
+<p>Chat with LLaMA2:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">AutoTokenizer</span><span class="p">,</span> <span class="n">TextStreamer</span>
+<span class="kn">from</span> <span class="nn">intel_extension_for_transformers.transformers</span> <span class="kn">import</span> <span class="n">AutoModelForCausalLM</span><span class="p">,</span> <span class="n">WeightOnlyQuantConfig</span>
+
+<span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;meta-llama/Llama-2-7b-chat-hf&quot;</span>  <span class="c1"># or local path to model</span>
+<span class="n">woq_config</span> <span class="o">=</span> <span class="n">WeightOnlyQuantConfig</span><span class="p">(</span><span class="n">compute_dtype</span><span class="o">=</span><span class="s2">&quot;int8&quot;</span><span class="p">,</span> <span class="n">weight_dtype</span><span class="o">=</span><span class="s2">&quot;int4&quot;</span><span class="p">)</span>
+<span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">trust_remote_code</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">streamer</span> <span class="o">=</span> <span class="n">TextStreamer</span><span class="p">(</span><span class="n">tokenizer</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">AutoModelForCausalLM</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">quantization_config</span><span class="o">=</span><span class="n">woq_config</span><span class="p">,</span> <span class="n">trust_remote_code</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+    <span class="n">prompt</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;&gt; &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">prompt</span> <span class="o">==</span> <span class="s2">&quot;quit&quot;</span><span class="p">:</span>
+        <span class="k">break</span>
+    <span class="n">b_prompt</span> <span class="o">=</span> <span class="s2">&quot;[INST]</span><span class="si">{}</span><span class="s2">[/INST]&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">prompt</span><span class="p">)</span>  <span class="c1"># prompt template for llama2</span>
+    <span class="n">inputs</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="p">(</span><span class="n">b_prompt</span><span class="p">,</span> <span class="n">return_tensors</span><span class="o">=</span><span class="s2">&quot;pt&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">input_ids</span>
+    <span class="n">outputs</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">streamer</span><span class="o">=</span><span class="n">streamer</span><span class="p">,</span> <span class="n">interactive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ignore_prompt</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">num_beams</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_new_tokens</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">ctx_size</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span> <span class="n">do_sample</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">threads</span><span class="o">=</span><span class="mi">28</span><span class="p">,</span> <span class="n">repetition_penalty</span><span class="o">=</span><span class="mf">1.1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Chat with ChatGLM2:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">AutoTokenizer</span><span class="p">,</span> <span class="n">TextStreamer</span>
+<span class="kn">from</span> <span class="nn">intel_extension_for_transformers.transformers</span> <span class="kn">import</span> <span class="n">AutoModelForCausalLM</span><span class="p">,</span> <span class="n">WeightOnlyQuantConfig</span>
+
+<span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;THUDM/chatglm2-6b&quot;</span>  <span class="c1"># or local path to model</span>
+<span class="n">woq_config</span> <span class="o">=</span> <span class="n">WeightOnlyQuantConfig</span><span class="p">(</span><span class="n">compute_dtype</span><span class="o">=</span><span class="s2">&quot;int8&quot;</span><span class="p">,</span> <span class="n">weight_dtype</span><span class="o">=</span><span class="s2">&quot;int4&quot;</span><span class="p">)</span>
+<span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">trust_remote_code</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">streamer</span> <span class="o">=</span> <span class="n">TextStreamer</span><span class="p">(</span><span class="n">tokenizer</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">AutoModelForCausalLM</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">quantization_config</span><span class="o">=</span><span class="n">woq_config</span><span class="p">,</span> <span class="n">trust_remote_code</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+    <span class="n">prompt</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;&gt; &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">prompt</span> <span class="o">==</span> <span class="s2">&quot;quit&quot;</span><span class="p">:</span>
+        <span class="k">break</span>
+    <span class="n">prompt</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">build_prompt</span><span class="p">(</span><span class="n">prompt</span><span class="p">)</span>  <span class="c1"># prompt template for chatglm2</span>
+    <span class="n">inputs</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="p">([</span><span class="n">prompt</span><span class="p">],</span> <span class="n">return_tensors</span><span class="o">=</span><span class="s2">&quot;pt&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">input_ids</span>
+    <span class="n">outputs</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">streamer</span><span class="o">=</span><span class="n">streamer</span><span class="p">,</span> <span class="n">interactive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ignore_prompt</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">num_beams</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_new_tokens</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">ctx_size</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span> <span class="n">do_sample</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">threads</span><span class="o">=</span><span class="mi">28</span><span class="p">,</span> <span class="n">repetition_penalty</span><span class="o">=</span><span class="mf">1.1</span><span class="p">,</span> <span class="n">n_keep</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="how-to-use-python-script">
+<h2>How to use: Python script<a class="headerlink" href="#how-to-use-python-script" title="Link to this heading"></a></h2>
 <p>Install from binary</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>intel-extension-for-transformers
 </pre></div>
 </div>
 <p>Build from source</p>
+<blockquote>
+<div><p>:warning: <strong>If you want to use <code class="docutils literal notranslate"><span class="pre">from_pretrain</span></code> API</strong>: please follow <a class="reference external" href="#How-to-use-Transformer-based-API">Transformer-based API</a></p>
+</div></blockquote>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Linux</span>
+<span class="c1"># make sure your path is in intel-extension-for-transformers/intel_extension_for_transformers/llm/runtime/graph folder</span>
 git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>--recursive
 mkdir<span class="w"> </span>build
 <span class="nb">cd</span><span class="w"> </span>build
@@ -145,56 +281,40 @@ ninja
 </div>
 <div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="c"># Windows</span>
 <span class="c"># Install VisualStudio 2022 and open &#39;Developer PowerShell for VS 2022&#39;</span>
+<span class="c"># make sure your path is in intel-extension-for-transformers/intel_extension_for_transformers/llm/runtime/graph folder</span>
 <span class="n">mkdir</span> <span class="n">build</span>
 <span class="nb">cd </span><span class="n">build</span>
 <span class="n">cmake</span> <span class="p">..</span>
 <span class="n">cmake</span> <span class="p">-</span><span class="n">-build</span> <span class="p">.</span> <span class="n">-j</span>
 </pre></div>
 </div>
-</section>
-<section id="run-llm-with-python-api">
-<h3>2. Run LLM with Python API<a class="headerlink" href="#run-llm-with-python-api" title="Link to this heading"></a></h3>
-<p>You can use Python API to run Hugging Face model simply. Here is the sample code:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">AutoTokenizer</span><span class="p">,</span> <span class="n">TextStreamer</span>
-<span class="kn">from</span> <span class="nn">intel_extension_for_transformers.transformers</span> <span class="kn">import</span> <span class="n">AutoModelForCausalLM</span><span class="p">,</span> <span class="n">WeightOnlyQuantConfig</span>
-<span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;Intel/neural-chat-7b-v1-1&quot;</span>     <span class="c1"># Hugging Face model_id or local model</span>
-<span class="n">woq_config</span> <span class="o">=</span> <span class="n">WeightOnlyQuantConfig</span><span class="p">(</span><span class="n">compute_dtype</span><span class="o">=</span><span class="s2">&quot;int8&quot;</span><span class="p">,</span> <span class="n">weight_dtype</span><span class="o">=</span><span class="s2">&quot;int4&quot;</span><span class="p">)</span>
-<span class="n">prompt</span> <span class="o">=</span> <span class="s2">&quot;Once upon a time, a little girl&quot;</span>
-
-<span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">trust_remote_code</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="n">inputs</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="p">(</span><span class="n">prompt</span><span class="p">,</span> <span class="n">return_tensors</span><span class="o">=</span><span class="s2">&quot;pt&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">input_ids</span>
-<span class="n">streamer</span> <span class="o">=</span> <span class="n">TextStreamer</span><span class="p">(</span><span class="n">tokenizer</span><span class="p">)</span>
-
-<span class="n">model</span> <span class="o">=</span> <span class="n">AutoModelForCausalLM</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">quantization_config</span><span class="o">=</span><span class="n">woq_config</span><span class="p">,</span> <span class="n">trust_remote_code</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="n">outputs</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">streamer</span><span class="o">=</span><span class="n">streamer</span><span class="p">,</span> <span class="n">max_new_tokens</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
+<p>Note: add compile args <code class="docutils literal notranslate"><span class="pre">-DNE_AVX512=OFF</span> <span class="pre">-DNE_AVX512_VBMI=OFF</span> <span class="pre">-DNE_AVX512_VNNI=OFF</span></code> to <code class="docutils literal notranslate"><span class="pre">cmake</span></code> when compiling it on a CPU without AVX512</p>
 <section id="run-llm-with-python-script">
-<h3>3. Run LLM with Python Script<a class="headerlink" href="#run-llm-with-python-script" title="Link to this heading"></a></h3>
-<p>You can run LLM with one-click python script including convertion, quantization and inference.</p>
+<h3>1. Run LLM with Python Script<a class="headerlink" href="#run-llm-with-python-script" title="Link to this heading"></a></h3>
+<p>You can run LLM with one-click python script including conversion, quantization and inference.</p>
 <div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">python</span><span class="w"> </span><span class="n">scripts</span><span class="o">/</span><span class="n">run</span><span class="p">.</span><span class="n">py</span><span class="w"> </span><span class="n">model</span><span class="o">-</span><span class="n">path</span><span class="w"> </span><span class="o">--</span><span class="n">weight_dtype</span><span class="w"> </span><span class="n">int4</span><span class="w"> </span><span class="o">-</span><span class="n">p</span><span class="w"> </span><span class="s">&quot;She opened the door and see&quot;</span>
 </pre></div>
 </div>
-<p>Augument description of run.py:
-| Augument         | Description                                                              |
-| ————–    | ———————————————————————– |
-| model           | directory containing model file or model id                               |
-| –weight_dtype  | data type of quantized weight (default: int4)                             |
-| –alg           | quantization algorithm to use: sym/asym (default: sym)                    |
-| –group_size    | group size (default: 32)                                                  |
-| –scale_dtype   | fp32/bf16 type for scales (default: fp32)                                 |
-| –compute_dtype | data type of Gemm computation: int8/bf16/fp32 (default: int8)             |
-| –use_ggml      | enable ggml for quantization and inference                                |
-| -p / –prompt     | prompt to start generation with (default: empty)                        |
-| -n / –n_predict  | number of tokens to predict (default: -1, -1 = infinity)                |
-| -t / –threads    | number of threads to use during computation (default: 56)               |
-| -b / –batch_size_truncate | batch size for prompt processing (default: 512)                |
-| -c / –ctx_size   | size of the prompt context (default: 512, can not be larger than specific model’s context window length)                                                                                       |
-| -s / –seed       | NG seed (default: -1, use random seed for &lt; 0)                          |
-| –repeat_penalty  | penalize repeat sequence of tokens (default: 1.1, 1.0 = disabled)       |
-| –color           | colorise output to distinguish prompt and user input from generations   |
-| –keep            | number of tokens to keep from the initial prompt (default: 0, -1 = all) |</p>
+<p>Argument description of run.py:
+| Argument                    | Description                                                                                                   |
+| ————–              | ———————————————————————                                         |
+| model                       | Directory containing model file or model id: String                                                           |
+| –weight_dtype              | Data type of quantized weight: int4/int8 (default int4)                                                       |
+| –alg                       | Quantization algorithm: sym/asym (default sym)                                                                |
+| –group_size                | Group size: Int (default: 32)                                                                                 |
+| –scale_dtype               | Data type of scales: fp32/bf16 (dafault fp32)                                                                 |
+| –compute_dtype             | Data type of Gemm computation: int8/bf16/fp32 (default: int8)                                                 |
+| –use_ggml                  | Enable ggml for quantization and inference                                                                    |
+| -p / –prompt               | Prompt to start generation with: String (default: empty)                                                      |
+| -n / –n_predict            | Number of tokens to predict: Int (default: -1, -1 = infinity)                                                 |
+| -t / –threads              | Number of threads to use during computation: Int (default: 56)                                                |
+| -b / –batch_size_truncate  | Batch size for prompt processing: Int (default: 512)                                                          |
+| -c / –ctx_size             | Size of the prompt context: Int (default: 512, can not be larger than specific model’s context window length) |
+| -s / –seed                 | NG seed: Int (default: -1, use random seed for &lt; 0)                                                           |
+| –repeat_penalty            | Penalize repeat sequence of tokens: Float (default: 1.1, 1.0 = disabled)                                      |
+| –color                     | Colorise output to distinguish prompt and user input from generations                                         |
+| –keep                      | Number of tokens to keep from the initial prompt: Int (default: 0, -1 = all)                                  |
+| –shift-roped-k             | Use <a class="reference external" href="./docs/infinite_inference.html#shift-rope-k-and-ring-buffer">ring-buffer</a> and thus do not re-computing after reaching ctx_size (default: False) |</p>
 </section>
 </section>
 <section id="advanced-usage">
@@ -210,6 +330,9 @@ python<span class="w"> </span>scripts/convert.py<span class="w"> </span>--outtyp
 git<span class="w"> </span>clone<span class="w"> </span>https://huggingface.co/meta-llama/Llama-2-7b-chat-hf
 python<span class="w"> </span>scripts/convert.py<span class="w"> </span>--outtype<span class="w"> </span>f32<span class="w"> </span>--outfile<span class="w"> </span>ne-f32.bin<span class="w"> </span>model_path
 
+<span class="c1"># To convert model with PEFT(Parameter-Efficient Fine-Tuning) adapter, you need to merge the PEFT adapter into the model first, use below command to merge the PEFT adapter and save the merged model, afterwards you can use &#39;scripts/convert.py&#39; just like above mentioned.</span>
+python<span class="w"> </span>scripts/load_peft_and_merge.py<span class="w"> </span>--model_name_or_path<span class="w"> </span>meta-llama/Llama-2-7b-hf<span class="w"> </span>--peft_name_or_path<span class="w"> </span>dfurman/llama-2-7b-instruct-peft<span class="w"> </span>--save_path<span class="w"> </span>./Llama-2-7b-hf-instruct-peft
+
 <span class="c1"># quantize weights of fp32 ggml bin</span>
 <span class="c1"># model_name: llama, llama2, mpt, falcon, gptj, starcoder, dolly</span>
 <span class="c1"># optimized INT4 model with group size 128 (recommended)</span>
@@ -221,19 +344,20 @@ python<span class="w"> </span>scripts/quantize.py<span class="w"> </span>--model
 python<span class="w"> </span>scripts/quantize.py<span class="w"> </span>--model_name<span class="w"> </span>llama2<span class="w"> </span>--model_file<span class="w"> </span>ne-f32.bin<span class="w"> </span>--out_file<span class="w"> </span>ne-q4_j.bin<span class="w"> </span>--weight_dtype<span class="w"> </span>int4<span class="w"> </span>--group_size<span class="w"> </span><span class="m">32</span><span class="w"> </span>--compute_dtype<span class="w"> </span>int8
 </pre></div>
 </div>
-<p>Augument description of quantize.py:
-| Augument        | Description                                                 |
-| ————–  | ———————————————————– |
-| –model_file    | path to the fp32 model                                      |
-| –out_file      | path to the quantized model                                 |
-| –config        | path to the configuration file (default: “”)                |
-| –nthread       | number of threads to use (default: 1)                       |
-| –weight_dtype  | data type of quantized weight: int4/int8 (default: int4)    |
-| –alg           | quantization algorithm to use: sym/asym (default: sym)      |
-| –group_size    | group size (default: 32)                                    |
-| –scale_dtype   | data type of scales: bf16/fp32 (default: fp32)              |
-| –compute_dtype | data type of Gemm computation: int8/bf16/fp32 (default: int8)  |
-| –use_ggml      | enable ggml for quantization and inference                  |</p>
+<p>Argument description of quantize.py:
+| Argument        | Description                                                  |
+| ————–  | ———————————————————–  |
+| –model_file    | Path to the fp32 model: String                               |
+| –out_file      | Path to the quantized model: String                          |
+| –build_dir     | Path to the build file: String                               |
+| –config        | Path to the configuration file: String (default: “”)         |
+| –nthread       | Number of threads to use: Int (default: 1)                   |
+| –weight_dtype  | Data type of quantized weight: int4/int8 (default: int4)     |
+| –alg           | Quantization algorithm to use: sym/asym (default: sym)       |
+| –group_size    | Group size: Int (default: 32)                                |
+| –scale_dtype   | Data type of scales: bf16/fp32 (default: fp32)               |
+| –compute_dtype | Data type of Gemm computation: int8/bf16/fp32 (default: int8)|
+| –use_ggml      | Enable ggml for quantization and inference                   |</p>
 </section>
 <section id="inference-llm">
 <h3>2. Inference LLM<a class="headerlink" href="#inference-llm" title="Link to this heading"></a></h3>
@@ -250,26 +374,32 @@ python<span class="w"> </span>scripts/quantize.py<span class="w"> </span>--model
 <span class="nv">OMP_NUM_THREADS</span><span class="o">=</span><span class="m">56</span><span class="w"> </span>numactl<span class="w"> </span>-m<span class="w"> </span><span class="m">0</span><span class="w"> </span>-C<span class="w"> </span><span class="m">0</span>-55<span class="w"> </span>python<span class="w"> </span>scripts/inference.py<span class="w"> </span>--model_name<span class="w"> </span>llama<span class="w"> </span>-m<span class="w"> </span>ne-q4_j.bin<span class="w"> </span>-c<span class="w"> </span><span class="m">512</span><span class="w"> </span>-b<span class="w"> </span><span class="m">1024</span><span class="w"> </span>-n<span class="w"> </span><span class="m">256</span><span class="w"> </span>-t<span class="w"> </span><span class="m">56</span><span class="w"> </span>--color<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;She opened the door and see&quot;</span><span class="w"> </span>--repeat_penalty<span class="w"> </span><span class="m">1</span>.2
 </pre></div>
 </div>
-<p>Augument description of inference.py:
-| Augument          | Description                                                             |
-| ————–    | ———————————————————————– |
-| –model_name      | model name                                                              |
-| -m / –model      | path to the executed model                                              |
-| -p / –prompt     | prompt to start generation with (default: empty)                        |
-| -n / –n_predict  | number of tokens to predict (default: -1, -1 = infinity)                |
-| -t / –threads    | number of threads to use during computation (default: 56)               |
-| -b / –batch_size | batch size for prompt processing (default: 512)                         |
-| -c / –ctx_size   | size of the prompt context (default: 512, can not be larger than specific model’s context window length)                                                                                |
-| -s / –seed       | NG seed (default: -1, use random seed for &lt; 0)                          |
-| –repeat_penalty  | penalize repeat sequence of tokens (default: 1.1, 1.0 = disabled)       |
-| –color           | colorise output to distinguish prompt and user input from generations   |
-| –keep            | number of tokens to keep from the initial prompt (default: 0, -1 = all) |
-| –glm_tokenizer   | the path of the chatglm tokenizer (default: THUDM/chatglm-6b)           |
-| –memory-f32 <br> –memory-f16 <br> –memory-auto | Data type of kv memory (default to auto);<br>If set to auto, the runtime will try with jblas flash attn managed format (currently requires GCC13 &amp; AMX) and fall back to fp16 if failed |</p>
+<p>Argument description of inference.py:
+| Argument                                          | Description                                                                                                                                                                             |
+| ————–                                    | ———————————————————————–                                                                                                                 |
+| –model_name                                      | Model name: String                                                                                                                                                                      |
+| -m / –model                                      | Path to the executed model: String                                                                                                                                                      |
+| –build_dir                                       | Path to the build file: String                                                                                                                                                          |
+| -p / –prompt                                     | Prompt to start generation with: String (default: empty)                                                                                                                                |
+| -n / –n_predict                                  | Number of tokens to predict: Int (default: -1, -1 = infinity)                                                                                                                           |
+| -t / –threads                                    | Number of threads to use during computation: Int (default: 56)                                                                                                                          |
+| -b / –batch_size                                 | Batch size for prompt processing: Int (default: 512)                                                                                                                                    |
+| -c / –ctx_size                                   | Size of the prompt context: Int (default: 512, can not be larger than specific model’s context window length)                                                                           |
+| -s / –seed                                       | NG seed: Int (default: -1, use random seed for &lt; 0)                                                                                                                                     |
+| –repeat_penalty                                  | Penalize repeat sequence of tokens: Float (default: 1.1, 1.0 = disabled)                                                                                                                |
+| –color                                           | Colorise output to distinguish prompt and user input from generations                                                                                                                   |
+| –keep                                            | Number of tokens to keep from the initial prompt: Int (default: 0, -1 = all)                                                                                                            |
+| –shift-roped-k                                   | Use <a class="reference external" href="./docs/infinite_inference.html#shift-rope-k-and-ring-buffer">ring-buffer</a> and thus do not re-computing after reaching ctx_size (default: False)                                      |
+| –glm_tokenizer                                   | The path of the chatglm tokenizer: String (default: THUDM/chatglm-6b)                                                                                                                   |
+| –memory-f32 <br> –memory-f16 <br> –memory-auto | Data type of kv memory (default to auto);<br>If set to auto, the runtime will try with jblas flash attn managed format (currently requires GCC11+ &amp; AMX) and fall back to fp16 if failed |</p>
 </section>
 <section id="tensor-parallelism-cross-nodes-sockets">
 <h3>3. Tensor Parallelism cross nodes/sockets<a class="headerlink" href="#tensor-parallelism-cross-nodes-sockets" title="Link to this heading"></a></h3>
-<p>We support tensor parallelism strategy for distributed inference/training on multi-node and multi-socket.  You can refer to <a class="reference external" href="./tensor_parallelism.html">tensor_parallelism.html</a> to enable this feature.</p>
+<p>We support tensor parallelism strategy for distributed inference/training on multi-node and multi-socket. You can refer to <a class="reference external" href="./docs/tensor_parallelism.html">tensor_parallelism.html</a> to enable this feature.</p>
+</section>
+<section id="contribution">
+<h3>4. Contribution<a class="headerlink" href="#contribution" title="Link to this heading"></a></h3>
+<p>You can consider adding your own models via <a class="reference external" href="./developer_document.html">graph developer document</a>.</p>
 </section>
 </section>
 </section>
@@ -288,7 +418,7 @@ python<span class="w"> </span>scripts/quantize.py<span class="w"> </span>--model
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
     provided by <a href="https://readthedocs.org">Read the Docs</a>.
-   <jinja2.runtime.BlockReference object at 0x7fc35770fbb0> 
+   <jinja2.runtime.BlockReference object at 0x7ff35a09a140> 
   <p></p><div><a href='https://www.intel.com/content/www/us/en/privacy/intel-cookie-notice.html' data-cookie-notice='true'>Cookies</a> <a href='https://www.intel.com/content/www/us/en/privacy/intel-privacy-notice.html'>| Privacy</a></div>
 
 
