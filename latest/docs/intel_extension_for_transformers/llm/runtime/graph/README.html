@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LLM Runtime &mdash; Intel® Extension for Transformers 0.1.dev1+g5f5fd84 documentation</title>
+  <title>LLM Runtime &mdash; Intel® Extension for Transformers 0.1.dev1+g7d276cd documentation</title>
       <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../../_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="../../../../../_static/graphviz.css" type="text/css" />
@@ -115,27 +115,27 @@
 <p>LLM Runtime supports the following models:</p>
 <section id="text-generation">
 <h3>Text Generation<a class="headerlink" href="#text-generation" title="Link to this heading"></a></h3>
-<p>| model name | INT8 | INT4|
-|—|:—:|:—:|
-|<a class="reference external" href="https://huggingface.co/meta-llama/Llama-2-7b-chat-hf">LLaMA2-7B</a>, <a class="reference external" href="https://huggingface.co/meta-llama/Llama-2-13b-chat-hf">LLaMA2-13B</a>, <a class="reference external" href="https://huggingface.co/meta-llama/Llama-2-70b-chat-hf">LLaMA2-70B</a>| ✅ | ✅ |
-|<a class="reference external" href="https://huggingface.co/decapoda-research/llama-7b-hf">LLaMA-7B</a>, <a class="reference external" href="https://huggingface.co/decapoda-research/llama-13b-hf">LLaMA-13B</a>| ✅ | ✅ |
-|<a class="reference external" href="https://huggingface.co/EleutherAI/gpt-j-6b">GPT-J-6B</a>| ✅ | ✅ |
-|<a class="reference external" href="https://huggingface.co/EleutherAI/gpt-neox-20b">GPT-NeoX-20B</a>| ✅ | ✅ |
-|<a class="reference external" href="https://huggingface.co/databricks/dolly-v2-3b">Dolly-v2-3B</a>| ✅ | ✅ |
-|<a class="reference external" href="https://huggingface.co/mosaicml/mpt-7b">MPT-7B</a>, <a class="reference external" href="https://huggingface.co/mosaicml/mpt-30b">MPT-30B</a>| ✅ | ✅ |
-|<a class="reference external" href="https://huggingface.co/tiiuae/falcon-7b">Falcon-7B</a>, <a class="reference external" href="https://huggingface.co/tiiuae/falcon-40b">Falcon-40B</a>| ✅ | ✅ |
-|<a class="reference external" href="https://huggingface.co/bigscience/bloomz-7b1">BLOOM-7B</a>| ✅ | ✅ |
-|<a class="reference external" href="https://huggingface.co/facebook/opt-125m">OPT-125m</a>, <a class="reference external" href="https://huggingface.co/facebook/opt-350m">OPT-350m</a>, <a class="reference external" href="https://huggingface.co/facebook/opt-1.3b">OPT-1.3B</a>, <a class="reference external" href="https://huggingface.co/facebook/opt-13b">OPT-13B</a>| ✅ | ✅ |
-|<a class="reference external" href="https://huggingface.co/THUDM/chatglm-6b">ChatGLM-6B</a>, <a class="reference external" href="https://huggingface.co/THUDM/chatglm2-6b">ChatGLM2-6B</a>| ✅ | ✅ |
-|<a class="reference external" href="https://huggingface.co/baichuan-inc/Baichuan-13B-Chat">Baichuan-13B-Chat</a>, <a class="reference external" href="https://huggingface.co/baichuan-inc/Baichuan2-13B-Chat">Baichuan2-13B-Chat</a>| ✅ | ✅ |
-|<a class="reference external" href="https://huggingface.co/mistralai/Mistral-7B-v0.1">Mistral-7B</a>| ✅ | ✅ |</p>
+<p>| Model Name | INT8 | INT4 | Transformer Version |
+|—|:—:|:—:|:—:|
+|<a class="reference external" href="https://huggingface.co/meta-llama/Llama-2-7b-chat-hf">LLaMA2-7B</a>, <a class="reference external" href="https://huggingface.co/meta-llama/Llama-2-13b-chat-hf">LLaMA2-13B</a>, <a class="reference external" href="https://huggingface.co/meta-llama/Llama-2-70b-chat-hf">LLaMA2-70B</a>| ✅ | ✅ |  Latest |
+|<a class="reference external" href="https://huggingface.co/decapoda-research/llama-7b-hf">LLaMA-7B</a>, <a class="reference external" href="https://huggingface.co/decapoda-research/llama-13b-hf">LLaMA-13B</a>| ✅ | ✅ |  Latest |
+|<a class="reference external" href="https://huggingface.co/EleutherAI/gpt-j-6b">GPT-J-6B</a>| ✅ | ✅ |  Latest |
+|<a class="reference external" href="https://huggingface.co/EleutherAI/gpt-neox-20b">GPT-NeoX-20B</a>| ✅ | ✅ |  Latest |
+|<a class="reference external" href="https://huggingface.co/databricks/dolly-v2-3b">Dolly-v2-3B</a>| ✅ | ✅ |  4.28.1 or newer |
+|<a class="reference external" href="https://huggingface.co/mosaicml/mpt-7b">MPT-7B</a>, <a class="reference external" href="https://huggingface.co/mosaicml/mpt-30b">MPT-30B</a>| ✅ | ✅ |  Latest |
+|<a class="reference external" href="https://huggingface.co/tiiuae/falcon-7b">Falcon-7B</a>, <a class="reference external" href="https://huggingface.co/tiiuae/falcon-40b">Falcon-40B</a>| ✅ | ✅ |  Latest |
+|<a class="reference external" href="https://huggingface.co/bigscience/bloomz-7b1">BLOOM-7B</a>| ✅ | ✅ |  Latest |
+|<a class="reference external" href="https://huggingface.co/facebook/opt-125m">OPT-125m</a>, <a class="reference external" href="https://huggingface.co/facebook/opt-350m">OPT-350m</a>, <a class="reference external" href="https://huggingface.co/facebook/opt-1.3b">OPT-1.3B</a>, <a class="reference external" href="https://huggingface.co/facebook/opt-13b">OPT-13B</a>| ✅ | ✅ |  Latest |
+|<a class="reference external" href="https://huggingface.co/THUDM/chatglm-6b">ChatGLM-6B</a>, <a class="reference external" href="https://huggingface.co/THUDM/chatglm2-6b">ChatGLM2-6B</a>| ✅ | ✅ |  Latest |
+|<a class="reference external" href="https://huggingface.co/baichuan-inc/Baichuan-13B-Chat">Baichuan-13B-Chat</a>, <a class="reference external" href="https://huggingface.co/baichuan-inc/Baichuan2-13B-Chat">Baichuan2-13B-Chat</a>| ✅ | ✅ |  Latest |
+|<a class="reference external" href="https://huggingface.co/mistralai/Mistral-7B-v0.1">Mistral-7B</a>| ✅ | ✅ | 4.34.0 or newer |</p>
 </section>
 <section id="code-generation">
 <h3>Code Generation<a class="headerlink" href="#code-generation" title="Link to this heading"></a></h3>
-<p>| model name | INT8 | INT4|
-|—|:—:|:—:|
-|<a class="reference external" href="https://huggingface.co/codellama/CodeLlama-7b-hf">Code-LLaMA-7B</a>, <a class="reference external" href="https://huggingface.co/codellama/CodeLlama-13b-hf">Code-LLaMA-13B</a>| ✅ | ✅ |
-|<a class="reference external" href="https://huggingface.co/bigcode/starcoderbase-1b">StarCoder-1B</a>, <a class="reference external" href="https://huggingface.co/bigcode/starcoderbase-3b">StarCoder-3B</a>, <a class="reference external" href="https://huggingface.co/bigcode/starcoder">StarCoder-15.5B</a>| ✅ | ✅ |</p>
+<p>| Model Name | INT8 | INT4 | Transformer Version |
+|—|:—:|:—:|:—:|
+|<a class="reference external" href="https://huggingface.co/codellama/CodeLlama-7b-hf">Code-LLaMA-7B</a>, <a class="reference external" href="https://huggingface.co/codellama/CodeLlama-13b-hf">Code-LLaMA-13B</a>| ✅ | ✅ |  Latest |
+|<a class="reference external" href="https://huggingface.co/bigcode/starcoderbase-1b">StarCoder-1B</a>, <a class="reference external" href="https://huggingface.co/bigcode/starcoderbase-3b">StarCoder-3B</a>, <a class="reference external" href="https://huggingface.co/bigcode/starcoder">StarCoder-15.5B</a>| ✅ | ✅ |  Latest |</p>
 </section>
 </section>
 <section id="how-to-use">
@@ -152,8 +152,12 @@
 <h3>1. Install<a class="headerlink" href="#install" title="Link to this heading"></a></h3>
 <p>Install from binary</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>intel-extension-for-transformers
+pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt<span class="w">  </span><span class="c1"># under graph folder</span>
 </pre></div>
 </div>
+<blockquote>
+<div><p>Some models only support specific versions of transformers. Please refer to the table above or official documentation.</p>
+</div></blockquote>
 </section>
 <section id="run-llm-with-transformer-based-api">
 <h3>2. Run LLM with Transformer-based API<a class="headerlink" href="#run-llm-with-transformer-based-api" title="Link to this heading"></a></h3>
@@ -282,7 +286,7 @@
 <blockquote>
 <div><p>:warning: <strong>If you want to use <code class="docutils literal notranslate"><span class="pre">from_pretrain</span></code> API</strong>: please follow <a class="reference external" href="#How-to-use-Transformer-based-API">Transformer-based API</a></p>
 </div></blockquote>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Linux</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Linux and WSL</span>
 <span class="c1"># make sure your path is in intel-extension-for-transformers/intel_extension_for_transformers/llm/runtime/graph folder</span>
 git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>--recursive
 mkdir<span class="w"> </span>build
@@ -297,10 +301,9 @@ ninja
 <span class="n">mkdir</span> <span class="n">build</span>
 <span class="nb">cd </span><span class="n">build</span>
 <span class="n">cmake</span> <span class="p">..</span>
-<span class="n">cmake</span> <span class="p">-</span><span class="n">-build</span> <span class="p">.</span> <span class="n">-j</span>
+<span class="n">cmake</span> <span class="p">-</span><span class="n">-build</span> <span class="p">.</span> <span class="n">-j</span> <span class="p">-</span><span class="n">-config</span> <span class="n">Release</span>
 </pre></div>
 </div>
-<p>Note: add compile args <code class="docutils literal notranslate"><span class="pre">-DNE_AVX512=OFF</span> <span class="pre">-DNE_AVX512_VBMI=OFF</span> <span class="pre">-DNE_AVX512_VNNI=OFF</span></code> to <code class="docutils literal notranslate"><span class="pre">cmake</span></code> when compiling it on a CPU without AVX512</p>
 <section id="run-llm-with-python-script">
 <h3>1. Run LLM with Python Script<a class="headerlink" href="#run-llm-with-python-script" title="Link to this heading"></a></h3>
 <p>You can run LLM with one-click python script including conversion, quantization and inference.</p>
@@ -377,13 +380,19 @@ python<span class="w"> </span>scripts/quantize.py<span class="w"> </span>--model
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># recommed to use numactl to bind cores in Intel cpus for better performance</span>
 <span class="c1"># if you use different core numbers, please also  change -t arg value</span>
 <span class="c1"># please type prompt about codes when run `StarCoder`, for example, -p &quot;def fibonnaci(&quot;.</span>
-<span class="nv">OMP_NUM_THREADS</span><span class="o">=</span><span class="m">56</span><span class="w"> </span>numactl<span class="w"> </span>-m<span class="w"> </span><span class="m">0</span><span class="w"> </span>-C<span class="w"> </span><span class="m">0</span>-55<span class="w"> </span>python<span class="w"> </span>scripts/inference.py<span class="w"> </span>--model_name<span class="w"> </span>llama<span class="w"> </span>-m<span class="w"> </span>ne-q4_j.bin<span class="w"> </span>-c<span class="w"> </span><span class="m">512</span><span class="w"> </span>-b<span class="w"> </span><span class="m">1024</span><span class="w"> </span>-n<span class="w"> </span><span class="m">256</span><span class="w"> </span>-t<span class="w"> </span><span class="m">56</span><span class="w"> </span>--color<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;She opened the door and see&quot;</span>
+
+<span class="c1">#Linux and WSL</span>
+<span class="nv">OMP_NUM_THREADS</span><span class="o">=</span>&lt;physic_cores&gt;<span class="w"> </span>numactl<span class="w"> </span>-m<span class="w"> </span><span class="m">0</span><span class="w"> </span>-C<span class="w"> </span><span class="m">0</span>-&lt;physic_cores-1&gt;<span class="w"> </span>python<span class="w"> </span>scripts/inference.py<span class="w"> </span>--model_name<span class="w"> </span>llama<span class="w"> </span>-m<span class="w"> </span>ne-q4_j.bin<span class="w"> </span>-c<span class="w"> </span><span class="m">512</span><span class="w"> </span>-b<span class="w"> </span><span class="m">1024</span><span class="w"> </span>-n<span class="w"> </span><span class="m">256</span><span class="w"> </span>-t<span class="w"> </span>&lt;physic_cores&gt;<span class="w"> </span>--color<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;She opened the door and see&quot;</span>
 
 <span class="c1"># if you want to generate fixed outputs, please set --seed arg, for example:</span>
-<span class="nv">OMP_NUM_THREADS</span><span class="o">=</span><span class="m">56</span><span class="w"> </span>numactl<span class="w"> </span>-m<span class="w"> </span><span class="m">0</span><span class="w"> </span>-C<span class="w"> </span><span class="m">0</span>-55<span class="w"> </span>python<span class="w"> </span>scripts/inference.py<span class="w"> </span>--model_name<span class="w"> </span>llama<span class="w"> </span>-m<span class="w"> </span>ne-q4_j.bin<span class="w"> </span>-c<span class="w"> </span><span class="m">512</span><span class="w"> </span>-b<span class="w"> </span><span class="m">1024</span><span class="w"> </span>-n<span class="w"> </span><span class="m">256</span><span class="w"> </span>-t<span class="w"> </span><span class="m">56</span><span class="w"> </span>--color<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;She opened the door and see&quot;</span><span class="w"> </span>--seed<span class="w"> </span><span class="m">12</span>
+<span class="nv">OMP_NUM_THREADS</span><span class="o">=</span>&lt;physic_cores&gt;<span class="w"> </span>numactl<span class="w"> </span>-m<span class="w"> </span><span class="m">0</span><span class="w"> </span>-C<span class="w"> </span><span class="m">0</span>-&lt;physic_cores-1&gt;<span class="w"> </span>python<span class="w"> </span>scripts/inference.py<span class="w"> </span>--model_name<span class="w"> </span>llama<span class="w"> </span>-m<span class="w"> </span>ne-q4_j.bin<span class="w"> </span>-c<span class="w"> </span><span class="m">512</span><span class="w"> </span>-b<span class="w"> </span><span class="m">1024</span><span class="w"> </span>-n<span class="w"> </span><span class="m">256</span><span class="w"> </span>-t<span class="w"> </span>&lt;physic_cores&gt;<span class="w"> </span>--color<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;She opened the door and see&quot;</span><span class="w"> </span>--seed<span class="w"> </span><span class="m">12</span>
 
 <span class="c1"># if you want to reduce repeated generated texts, please set --repeat_penalty (value &gt; 1.0, default = 1.0), for example:</span>
-<span class="nv">OMP_NUM_THREADS</span><span class="o">=</span><span class="m">56</span><span class="w"> </span>numactl<span class="w"> </span>-m<span class="w"> </span><span class="m">0</span><span class="w"> </span>-C<span class="w"> </span><span class="m">0</span>-55<span class="w"> </span>python<span class="w"> </span>scripts/inference.py<span class="w"> </span>--model_name<span class="w"> </span>llama<span class="w"> </span>-m<span class="w"> </span>ne-q4_j.bin<span class="w"> </span>-c<span class="w"> </span><span class="m">512</span><span class="w"> </span>-b<span class="w"> </span><span class="m">1024</span><span class="w"> </span>-n<span class="w"> </span><span class="m">256</span><span class="w"> </span>-t<span class="w"> </span><span class="m">56</span><span class="w"> </span>--color<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;She opened the door and see&quot;</span><span class="w"> </span>--repeat_penalty<span class="w"> </span><span class="m">1</span>.2
+<span class="nv">OMP_NUM_THREADS</span><span class="o">=</span>&lt;physic_cores&gt;<span class="w"> </span>numactl<span class="w"> </span>-m<span class="w"> </span><span class="m">0</span><span class="w"> </span>-C<span class="w"> </span><span class="m">0</span>-&lt;physic_cores-1&gt;<span class="w"> </span>python<span class="w"> </span>scripts/inference.py<span class="w"> </span>--model_name<span class="w"> </span>llama<span class="w"> </span>-m<span class="w"> </span>ne-q4_j.bin<span class="w"> </span>-c<span class="w"> </span><span class="m">512</span><span class="w"> </span>-b<span class="w"> </span><span class="m">1024</span><span class="w"> </span>-n<span class="w"> </span><span class="m">256</span><span class="w"> </span>-t<span class="w"> </span>&lt;physic_cores&gt;<span class="w"> </span>--color<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;She opened the door and see&quot;</span><span class="w"> </span>--repeat_penalty<span class="w"> </span><span class="m">1</span>.2
+
+<span class="c1">#Windows</span>
+<span class="c1">#Recommend to build and run our project in WSL to get a better and stable performance</span>
+python<span class="w"> </span>scripts/inference.py<span class="w"> </span>--model_name<span class="w"> </span>llama<span class="w"> </span>-m<span class="w"> </span>ne-q4_j.bin<span class="w"> </span>-c<span class="w"> </span><span class="m">512</span><span class="w"> </span>-b<span class="w"> </span><span class="m">1024</span><span class="w"> </span>-n<span class="w"> </span><span class="m">256</span><span class="w"> </span>-t<span class="w"> </span>&lt;physic_cores<span class="p">|</span>P-cores&gt;<span class="w"> </span>--color<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;She opened the door and see&quot;</span>
 </pre></div>
 </div>
 <p>Argument description of inference.py:
@@ -426,7 +435,7 @@ Here is a simple example, which requires a minimum generation length of 80 token
         <span class="bp">self</span><span class="o">.</span><span class="n">min_length</span> <span class="o">=</span> <span class="n">min_length</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">start_length</span> <span class="o">=</span> <span class="n">start_length</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stop_token_id</span> <span class="o">=</span> <span class="n">stop_token_id</span>
- 
+
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">input_ids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">LongTensor</span><span class="p">,</span> <span class="n">scores</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">FloatTensor</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
@@ -450,6 +459,10 @@ Here is a simple example, which requires a minimum generation length of 80 token
 </pre></div>
 </div>
 </section>
+<section id="perplexity-measuring-model-quality">
+<h3>6. Perplexity (measuring model quality)<a class="headerlink" href="#perplexity-measuring-model-quality" title="Link to this heading"></a></h3>
+<p>You can use the <a class="reference external" href="./scripts/perplexity.py">scripts/perplexity.py</a> script to over a given (subset of) dataset. Run <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">scripts/perplexity.py</span> <span class="pre">--help</span></code> for detailed usage. For more infomation of the perplexity metric, see https://huggingface.co/docs/transformers/perplexity.</p>
+</section>
 </section>
 </section>
 
@@ -467,7 +480,7 @@ Here is a simple example, which requires a minimum generation length of 80 token
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
     provided by <a href="https://readthedocs.org">Read the Docs</a>.
-   <jinja2.runtime.BlockReference object at 0x7f1d22e2bf10> 
+   <jinja2.runtime.BlockReference object at 0x7f55ba80cee0> 
   <p></p><div><a href='https://www.intel.com/content/www/us/en/privacy/intel-cookie-notice.html' data-cookie-notice='true'>Cookies</a> <a href='https://www.intel.com/content/www/us/en/privacy/intel-privacy-notice.html'>| Privacy</a></div>
 
 
