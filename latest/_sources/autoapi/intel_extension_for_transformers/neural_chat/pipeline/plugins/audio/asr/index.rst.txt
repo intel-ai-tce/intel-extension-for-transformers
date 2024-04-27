@@ -19,14 +19,14 @@ Classes
 
 
 
-.. py:class:: AudioSpeechRecognition(model_name_or_path='openai/whisper-small', bf16=False, device='cpu')
+.. py:class:: AudioSpeechRecognition(model_name_or_path='openai/whisper-small', bf16=False, language=None, device='cpu')
 
 
    Convert audio to text.
 
    .. py:method:: audio2text(audio_path)
 
-      Convert audio to text
+      Convert audio to text.
 
       audio_path: the path to the input audio, e.g. ~/xxx.mp3
 

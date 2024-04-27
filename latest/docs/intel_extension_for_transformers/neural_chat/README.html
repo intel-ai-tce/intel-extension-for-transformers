@@ -1,14 +1,16 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NeuralChat &mdash; Intel® Extension for Transformers 0.1.dev1+g9c6ea17 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  <title>NeuralChat &mdash; Intel® Extension for Transformers 0.1.dev1+gef82cd3 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=fd3f3429" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=68dfede1" />
+
+  
 <script type="text/javascript">
   // Configure TMS settings
   window.wapProfile = 'profile-microsite'; // This is mapped by WAP authorize value
@@ -88,176 +90,496 @@
              
   <div align="center"><section id="neuralchat">
 <h1>NeuralChat<a class="headerlink" href="#neuralchat" title="Link to this heading"></a></h1>
-<p><h3> A customizable chatbot framework to create your own chatbot within minutes</h3></p>
-<hr class="docutils" />
-<div align="left"><section id="introduction">
-<h2>Introduction<a class="headerlink" href="#introduction" title="Link to this heading"></a></h2>
-<p>NeuralChat is a customizable chat framework designed to easily create user own chatbot that can be efficiently deployed across multiple architectures (e.g., Intel® Xeon® Scalable processors, Habana® Gaudi® AI processors). NeuralChat is built on top of large language models (LLMs) and provides a set of strong capabilities including LLM fine-tuning, optimization, and inference, together with a rich set of plugins such as knowledge retrieval, query caching, etc. With NeuralChat, you can easily create a text-based or audio-based chatbot within minutes and deploy on user favorite platform rapidly.</p>
-<a target="_blank" href="./assets/pictures/neuralchat.png">
+<p><h3> A customizable framework to create your own LLM-driven AI apps within minutes</h3></p>
+<p>🌟<a class="reference external" href="./docs/neuralchat_api.html">RESTful API</a>   |   🔥<a class="reference external" href="./docs/advanced_features.html">Features</a>   |   💻<a class="reference external" href="./examples">Examples</a>   |   📖<a class="reference external" href="./docs/full_notebooks.html">Notebooks</a></p>
+</div></section>
+<section id="introduction">
+<h1>Introduction<a class="headerlink" href="#introduction" title="Link to this heading"></a></h1>
+<p>NeuralChat is a powerful and flexible open framework that empowers you to effortlessly create LLM-centric AI applications, including chatbots and copilots.</p>
+<ul class="simple">
+<li><p>Support a range of hardware like <a class="reference external" href="https://www.intel.com/content/www/us/en/products/details/processors/xeon/scalable.html">Intel Xeon Scalable processors</a>, <a class="reference external" href="https://habana.ai/products">Intel Gaudi AI processors</a>, <a class="reference external" href="https://www.intel.com/content/www/us/en/products/details/discrete-gpus/data-center-gpu/max-series.html">Intel® Data Center GPU Max Series</a> and NVidia GPUs</p></li>
+<li><p>Leverage the leading AI frameworks (e.g., <a class="reference external" href="https://pytorch.org/">PyTorch</a> and popular domain libraries (e.g., <a class="reference external" href="https://github.com/huggingface">Hugging Face</a>, <a class="reference external" href="https://www.langchain.com/">Langchain</a>) with their extensions</p></li>
+<li><p>Support the model customizations through parameter-efficient fine-tuning, quantization, and sparsity. Released <a class="reference external" href="https://huggingface.co/Intel/neural-chat-7b-v3-1">Intel NeuralChat-7B LLM</a>, ranking #1 in Hugging Face open LLM leaderboard in Nov’23</p></li>
+<li><p>Provide a rich set of plugins that can augment the AI applications through retrieval-augmented generation (RAG) (e.g., <a class="reference external" href="https://github.com/IntelLabs/fastRAG/tree/main">fastRAG</a>), content moderation, query caching, more</p></li>
+<li><p>Integrate with popular serving frameworks (e.g., <a class="reference external" href="https://github.com/vllm-project/vllm">vLLM</a>, <a class="reference external" href="https://github.com/huggingface/text-generation-inference">TGI</a>, <a class="reference external" href="https://developer.nvidia.com/triton-inference-server">Triton</a>). Support <a class="reference external" href="https://platform.openai.com/docs/introduction">OpenAI</a>-compatible API to simplify the creation or migration of AI applications</p></li>
+</ul>
+<a target="_blank" href="./docs/images/neuralchat_arch.png">
 <p align="center">
-  <img src="./assets/pictures/neuralchat.png" alt="NeuralChat" width=600 height=250>
+  <img src="./docs/images/neuralchat_arch.png" alt="NeuralChat" width=600 height=340>
 </p>
 </a><blockquote>
-<div><p>NeuralChat is under active development with some experimental features (APIs are subject to change).</p>
+<div><p>NeuralChat is under active development. APIs are subject to change.</p>
+</div></blockquote>
+</section>
+<section id="system-requirements">
+<h1>System Requirements<a class="headerlink" href="#system-requirements" title="Link to this heading"></a></h1>
+<p>Please make sure below basic system libraries are installed. If you want to try more features, please refer to <a class="reference external" href="../../docs/installation.html#system-requirements">system requirements</a></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>apt-get<span class="w"> </span>update
+apt-get<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span>python3-pip
+apt-get<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span>libgl1-mesa-glx
+</pre></div>
+</div>
+<blockquote>
+<div><p><strong>Note</strong>: If your system only have python3 or you meet error <code class="docutils literal notranslate"><span class="pre">python:</span> <span class="pre">command</span> <span class="pre">not</span> <span class="pre">found</span></code>, please run <code class="docutils literal notranslate"><span class="pre">ln</span> <span class="pre">-sf</span> <span class="pre">$(which</span> <span class="pre">python3)</span> <span class="pre">/usr/bin/python</span></code>.</p>
 </div></blockquote>
 </section>
 <section id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
-<p>NeuralChat is seamlessly integrated into the Intel Extension for Transformers. Please refer to <a class="reference external" href="../../docs/installation.html">Installation</a> page for step by step instructions.</p>
+<h1>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h1>
+<p>NeuralChat is under Intel Extension for Transformers, so ensure the installation of Intel Extension for Transformers first by following the <a class="reference external" href="../../docs/installation.html">installation</a>. After that, install additional dependency for NeuralChat per your device:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>intel-extension-for-transformers
+pip<span class="w"> </span>install<span class="w"> </span><span class="nv">fastapi</span><span class="o">==</span><span class="m">0</span>.103.2
+
+<span class="c1"># For CPU device</span>
+pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements_cpu.txt
+
+<span class="c1"># For HPU device</span>
+pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements_hpu.txt
+
+<span class="c1"># For XPU device</span>
+pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements_xpu.txt
+
+<span class="c1"># For Windows</span>
+pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements_win.txt
+
+<span class="c1"># For CUDA device</span>
+pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+</pre></div>
+</div>
+<blockquote>
+<div><p><strong>Note</strong>: Suggest using fastapi==0.103.2</p>
+</div></blockquote>
 </section>
 <section id="getting-started">
-<h2>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading"></a></h2>
-<p>NeuralChat could be deployed locally or accessed through service.</p>
-<section id="deploy-chatbot-locally">
-<h3>Deploy Chatbot Locally<a class="headerlink" href="#deploy-chatbot-locally" title="Link to this heading"></a></h3>
-<p>NeuralChat can be deployed locally and users can run it through command line or python code.</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Command line</span>
-neuralchat<span class="w"> </span>predict<span class="w"> </span>--query<span class="w"> </span><span class="s2">&quot;Tell me about Intel Xeon Scalable Processors.&quot;</span>
-</pre></div>
-</div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Python code</span>
-<span class="kn">from</span> <span class="nn">intel_extension_for_transformers.neural_chat</span> <span class="kn">import</span> <span class="n">build_chatbot</span>
-<span class="n">chatbot</span> <span class="o">=</span> <span class="n">build_chatbot</span><span class="p">()</span>
-<span class="n">response</span> <span class="o">=</span> <span class="n">chatbot</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="s2">&quot;Tell me about Intel Xeon Scalable Processors.&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="deploy-chatbot-service">
-<h3>Deploy Chatbot Service<a class="headerlink" href="#deploy-chatbot-service" title="Link to this heading"></a></h3>
-<p>NeuralChat can be deployed as a service and users can access it through curl with Restful API.</p>
-<section id="launch-service">
-<h4>Launch Service<a class="headerlink" href="#launch-service" title="Link to this heading"></a></h4>
+<h1>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading"></a></h1>
+<section id="openai-compatible-restful-apis">
+<h2>OpenAI-Compatible RESTful APIs<a class="headerlink" href="#openai-compatible-restful-apis" title="Link to this heading"></a></h2>
+<p>NeuralChat provides OpenAI-compatible RESTful APIs for LLM inference, so you can use NeuralChat as a drop-in replacement for OpenAI APIs. NeuralChat service can also be accessible through <a class="reference external" href="https://github.com/openai/openai-python">OpenAI client library</a>, <code class="docutils literal notranslate"><span class="pre">curl</span></code> commands, and <code class="docutils literal notranslate"><span class="pre">requests</span></code> library. See <a class="reference external" href="./docs/neuralchat_api.html">neuralchat_api.html</a>.</p>
+<section id="launch-openai-compatible-service">
+<h3>Launch OpenAI-compatible Service<a class="headerlink" href="#launch-openai-compatible-service" title="Link to this heading"></a></h3>
+<p>NeuralChat launches a chatbot service using <a class="reference external" href="https://huggingface.co/Intel/neural-chat-7b-v3-1">Intel/neural-chat-7b-v3-1</a> by default. You can customize the chatbot service by configuring the YAML file.</p>
+<p>You can start the NeuralChat server either using the shell command or Python code.</p>
+<p>Using Shell Command:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>neuralchat_server<span class="w"> </span>start<span class="w"> </span>--config_file<span class="w"> </span>./server/config/neuralchat.yaml
 </pre></div>
 </div>
-</section>
-<section id="access-service">
-<h4>Access Service<a class="headerlink" href="#access-service" title="Link to this heading"></a></h4>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;prompt&quot;: &quot;Tell me about Intel Xeon Scalable Processors.&quot;}&#39;</span><span class="w"> </span>http://127.0.0.1:80/v1/chat/completions
+<p>Using Python Code:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">intel_extension_for_transformers.neural_chat</span> <span class="kn">import</span> <span class="n">NeuralChatServerExecutor</span>
+<span class="n">server_executor</span> <span class="o">=</span> <span class="n">NeuralChatServerExecutor</span><span class="p">()</span>
+<span class="n">server_executor</span><span class="p">(</span><span class="n">config_file</span><span class="o">=</span><span class="s2">&quot;./server/config/neuralchat.yaml&quot;</span><span class="p">,</span> <span class="n">log_file</span><span class="o">=</span><span class="s2">&quot;./neuralchat.log&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
+<section id="access-the-service">
+<h3>Access the Service<a class="headerlink" href="#access-the-service" title="Link to this heading"></a></h3>
+<p>Once the service is running, you can observe an OpenAI-compatible endpoint <code class="docutils literal notranslate"><span class="pre">/v1/chat/completions</span></code>. You can use any of below ways to access the endpoint.</p>
+<section id="using-openai-client-library">
+<h4>Using OpenAI Client Library<a class="headerlink" href="#using-openai-client-library" title="Link to this heading"></a></h4>
+<p>First, install openai-python:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span>openai
+</pre></div>
+</div>
+<p>Then, interact with the model:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">openai</span>
+<span class="n">openai</span><span class="o">.</span><span class="n">api_key</span> <span class="o">=</span> <span class="s2">&quot;EMPTY&quot;</span>
+<span class="n">openai</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="s1">&#39;http://127.0.0.1:8000/v1/&#39;</span>
+<span class="n">response</span> <span class="o">=</span> <span class="n">openai</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">completions</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+      <span class="n">model</span><span class="o">=</span><span class="s2">&quot;Intel/neural-chat-7b-v3-1&quot;</span><span class="p">,</span>
+      <span class="n">messages</span><span class="o">=</span><span class="p">[</span>
+          <span class="p">{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;system&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;You are a helpful assistant.&quot;</span><span class="p">},</span>
+          <span class="p">{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;Tell me about Intel Xeon Scalable Processors.&quot;</span><span class="p">},</span>
+      <span class="p">]</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">choices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+</pre></div>
+</div>
+<blockquote>
+<div><p><strong>Note</strong>: When intel-extension-for-transformers &lt;= 1.3.1, please try <a class="reference external" href="#using-curl">command</a> below</p>
+</div></blockquote>
+</section>
+<section id="using-curl">
+<h4>Using Curl<a class="headerlink" href="#using-curl" title="Link to this heading"></a></h4>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>http://127.0.0.1:8000/v1/chat/completions<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
+<span class="s1">    &quot;model&quot;: &quot;Intel/neural-chat-7b-v3-1&quot;,</span>
+<span class="s1">    &quot;messages&quot;: [</span>
+<span class="s1">    {&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: &quot;You are a helpful assistant.&quot;},</span>
+<span class="s1">    {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Tell me about Intel Xeon Scalable Processors.&quot;}</span>
+<span class="s1">    ]</span>
+<span class="s1">    }&#39;</span>
+</pre></div>
+</div>
+<blockquote>
+<div><p><strong>Note</strong>: When intel-extension-for-transformers &lt;= 1.3.1, please use old command like:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;prompt&quot;: &quot;Tell me about Intel Xeon Scalable Processors.&quot;}&#39;</span><span class="w"> </span>http://127.0.0.1:8000/v1/chat/completions
+</pre></div>
+</div>
+</div></blockquote>
+</section>
+<section id="using-python-requests-library">
+<h4>Using Python Requests Library<a class="headerlink" href="#using-python-requests-library" title="Link to this heading"></a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">requests</span>
+<span class="n">url</span> <span class="o">=</span> <span class="s1">&#39;http://127.0.0.1:8000/v1/chat/completions&#39;</span>
+<span class="n">headers</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;Content-Type&#39;</span><span class="p">:</span> <span class="s1">&#39;application/json&#39;</span><span class="p">}</span>
+<span class="n">data</span> <span class="o">=</span> <span class="s1">&#39;{&quot;model&quot;: &quot;Intel/neural-chat-7b-v3-1&quot;, &quot;messages&quot;: [ </span><span class="se">\</span>
+<span class="s1">          {&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: &quot;You are a helpful assistant.&quot;}, </span><span class="se">\</span>
+<span class="s1">          {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Tell me about Intel Xeon Scalable Processors.&quot;}] </span><span class="se">\</span>
+<span class="s1">       }&#39;</span>
+<span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>
+</pre></div>
+</div>
+<blockquote>
+<div><p><strong>Note</strong>: When intel-extension-for-transformers &lt;= 1.3.1, please try <a class="reference external" href="#using-curl">command</a> above</p>
+</div></blockquote>
 </section>
 </section>
-<section id="advanced-topics">
-<h2>Advanced Topics<a class="headerlink" href="#advanced-topics" title="Link to this heading"></a></h2>
-<section id="plugins">
-<h3>Plugins<a class="headerlink" href="#plugins" title="Link to this heading"></a></h3>
-<p>NeuralChat introduces the <code class="docutils literal notranslate"><span class="pre">plugins</span></code> which offer a rich set of useful LLM utils and features to augment the chatbot’s capability. Such plugins are applied in the chatbot pipeline for inference.</p>
-<p>Below shows the supported plugins:</p>
-<ul>
-<li><p><a class="reference external" href="./pipeline/plugins/retrieval/">Knowledge Retrieval</a></p>
-<p>Knowledge retrieval consists of document indexing for efficient retrieval of relevant information, including Dense Indexing based on LangChain and Sparse Indexing based on fastRAG, document rankers to prioritize the most relevant responses.</p>
-</li>
-<li><p><a class="reference external" href="./pipeline/plugins/caching/">Query Caching</a></p>
-<p>Query caching enables the fast path to get the response without LLM inference and therefore improves the chat response time</p>
-</li>
-<li><p><a class="reference external" href="./pipeline/plugins/prompt/">Prompt Optimization</a></p>
-<p>Prompt optimization supports auto prompt engineering to improve user prompts.</p>
-</li>
-<li><p><a class="reference external" href="./pipeline/plugins/memory/">Memory Controller</a></p>
-<p>Memory controller enables the efficient memory utilization.</p>
-</li>
-<li><p><a class="reference external" href="./pipeline/plugins/security/">Safety Checker</a></p>
-<p>Safety checker enables the sensitive content check on inputs and outputs of the chatbot.</p>
-</li>
-</ul>
-<p>User could enable, disable, and even change the default behavior of all supported plugins like below</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">intel_extension_for_transformers.neural_chat</span> <span class="kn">import</span> <span class="n">build_chatbot</span><span class="p">,</span> <span class="n">PipelineConfig</span><span class="p">,</span> <span class="n">plugins</span>
-
-<span class="n">plugins</span><span class="o">.</span><span class="n">retrieval</span><span class="o">.</span><span class="n">enable</span> <span class="o">=</span> <span class="kc">True</span>
-<span class="n">plugins</span><span class="o">.</span><span class="n">retrieval</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;input_path&quot;</span><span class="p">]</span><span class="o">=</span><span class="s2">&quot;./assets/docs/&quot;</span>
-<span class="n">conf</span> <span class="o">=</span> <span class="n">PipelineConf</span><span class="p">(</span><span class="n">plugins</span><span class="o">=</span><span class="n">plugins</span><span class="p">)</span>
-<span class="n">chatbot</span> <span class="o">=</span> <span class="n">build_chatbot</span><span class="p">(</span><span class="n">conf</span><span class="p">)</span>
+</section>
+<section id="deploy-neuralchat-service">
+<h2>Deploy NeuralChat Service<a class="headerlink" href="#deploy-neuralchat-service" title="Link to this heading"></a></h2>
+<p>Please refer to the deployment examples for deploying the NeuralChat service.</p>
+<table>
+	<tbody>
+		<tr>
+			<td>Application</td>
+			<td>LLM</td>
+			<td>HW</td>
+			<td>Description</td>
+			<td>Examples</td>
+		</tr>
+		<tr>
+			<td>TextGen</td>
+			<td><a href="https://huggingface.co/Intel/neural-chat-7b-v3-1">NeuralChat-7B</a></td>
+			<td>Xeon</td>
+			<td>Text Generation Application</td>
+			<td><a href=examples/deployment/textbot/README.html>Text Generation Example</a></td>
+		</tr>
+		<tr>
+			<td>ChatQnA</td>
+			<td><a href="https://huggingface.co/Intel/neural-chat-7b-v3-1">NeuralChat-7B</a></td>
+			<td>Xeon, Gaudi</td>
+			<td>RAG Application</td>
+			<td><a href=examples/deployment/rag/README.html>RAG Example</a></td>
+		</tr>
+		<tr>
+			<td>CodeGen</td>
+			<td><a href="https://huggingface.co/Phind/Phind-CodeLlama-34B-v2">Phind/Phind-CodeLlama-34B-v2</a></td>
+			<td>AIPC, Xeon, Gaudi</td>
+			<td>Code Generation Application</td>
+			<td><a href=examples/deployment/codegen/README.html>CodeGen Example</a></td>
+		</tr>
+		<tr>
+			<td>TalkingBot</td>
+			<td><a href="https://huggingface.co/Intel/neural-chat-7b-v3-1">NeuralChat-7B</a>, <a href="https://huggingface.co/microsoft/speecht5_tts">speecht5_tts</a>， <a href="https://huggingface.co/openai/whisper-base">whisper</a></td>
+			<td>AIPC, Xeon</td>
+			<td>Audio & LLM Generation Application</td>
+			<td><a href=examples/deployment/talkingbot/server/README.html>TalkingBot Example</a></td>
+		</tr>
+	</tbody>
+</table></section>
+<section id="langchain-extension-apis">
+<h2>Langchain Extension APIs<a class="headerlink" href="#langchain-extension-apis" title="Link to this heading"></a></h2>
+<p>Intel Extension for Transformers provides a comprehensive suite of Langchain-based extension APIs, including advanced retrievers, embedding models, and vector stores. These enhancements are carefully crafted to expand the capabilities of the original langchain API, ultimately boosting overall performance. This extension is specifically tailored to enhance the functionality and performance of RAG.</p>
+<section id="vector-stores">
+<h3>Vector Stores<a class="headerlink" href="#vector-stores" title="Link to this heading"></a></h3>
+<p>We introduce enhanced vector store operations, enabling users to adjust and fine-tune their settings even after the chatbot has been initialized, offering a more adaptable and user-friendly experience. For langchain users, integrating and utilizing optimized Vector Stores is straightforward by replacing the original Chroma API in langchain.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">langchain_community.llms.huggingface_pipeline</span> <span class="kn">import</span> <span class="n">HuggingFacePipeline</span>
+<span class="kn">from</span> <span class="nn">langchain.chains</span> <span class="kn">import</span> <span class="n">RetrievalQA</span>
+<span class="kn">from</span> <span class="nn">langchain_core.vectorstores</span> <span class="kn">import</span> <span class="n">VectorStoreRetriever</span>
+<span class="kn">from</span> <span class="nn">intel_extension_for_transformers.langchain_community.vectorstores</span> <span class="kn">import</span> <span class="n">Chroma</span>
+<span class="n">retriever</span> <span class="o">=</span> <span class="n">VectorStoreRetriever</span><span class="p">(</span><span class="n">vectorstore</span><span class="o">=</span><span class="n">Chroma</span><span class="p">(</span><span class="o">...</span><span class="p">))</span>
+<span class="n">retrievalQA</span> <span class="o">=</span> <span class="n">RetrievalQA</span><span class="o">.</span><span class="n">from_llm</span><span class="p">(</span><span class="n">llm</span><span class="o">=</span><span class="n">HuggingFacePipeline</span><span class="p">(</span><span class="o">...</span><span class="p">),</span> <span class="n">retriever</span><span class="o">=</span><span class="n">retriever</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
-<section id="fine-tuning">
-<h3>Fine-tuning<a class="headerlink" href="#fine-tuning" title="Link to this heading"></a></h3>
-<p>NeuralChat supports fine-tuning the pretrained large language model (LLM) for text-generation, summarization, code generation tasks, and even TTS model, for user to create the customized chatbot.</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Command line</span>
-neuralchat<span class="w"> </span>finetune<span class="w"> </span>--base_model<span class="w"> </span><span class="s2">&quot;meta-llama/Llama-2-7b-chat-hf&quot;</span><span class="w"> </span>--config<span class="w"> </span>pipeline/finetuning/config/finetuning.yaml
+<section id="retrievers">
+<h3>Retrievers<a class="headerlink" href="#retrievers" title="Link to this heading"></a></h3>
+<p>We provide optimized retrievers such as <code class="docutils literal notranslate"><span class="pre">VectorStoreRetriever</span></code>, <code class="docutils literal notranslate"><span class="pre">ChildParentRetriever</span></code> to efficiently handle vectorstore operations, ensuring optimal retrieval performance.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">intel_extension_for_transformers.langchain_community.retrievers</span> <span class="kn">import</span> <span class="n">ChildParentRetriever</span>
+<span class="kn">from</span> <span class="nn">langchain.vectorstores</span> <span class="kn">import</span> <span class="n">Chroma</span>
+<span class="n">retriever</span> <span class="o">=</span> <span class="n">ChildParentRetriever</span><span class="p">(</span><span class="n">vectorstore</span><span class="o">=</span><span class="n">Chroma</span><span class="p">(</span><span class="n">documents</span><span class="o">=</span><span class="n">child_documents</span><span class="p">),</span> <span class="n">parentstore</span><span class="o">=</span><span class="n">Chroma</span><span class="p">(</span><span class="n">documents</span><span class="o">=</span><span class="n">parent_documents</span><span class="p">),</span> <span class="n">search_type</span><span class="o">=</span><span class="n">xxx</span><span class="p">,</span> <span class="n">search_kwargs</span><span class="o">=</span><span class="p">{</span><span class="o">...</span><span class="p">})</span>
+<span class="n">docs</span><span class="o">=</span><span class="n">retriever</span><span class="o">.</span><span class="n">get_relevant_documents</span><span class="p">(</span><span class="s2">&quot;Intel&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Python code</span>
-<span class="kn">from</span> <span class="nn">intel_extension_for_transformers.neural_chat</span> <span class="kn">import</span> <span class="n">finetune_model</span><span class="p">,</span> <span class="n">TextGenerationFinetuningConfig</span>
-<span class="n">finetune_cfg</span> <span class="o">=</span> <span class="n">TextGenerationFinetuningConfig</span><span class="p">()</span> <span class="c1"># support other finetuning config</span>
-<span class="n">finetune_model</span><span class="p">(</span><span class="n">finetune_cfg</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="optimization">
-<h3>Optimization<a class="headerlink" href="#optimization" title="Link to this heading"></a></h3>
-<p>NeuralChat provides typical model optimization technologies, like <code class="docutils literal notranslate"><span class="pre">Automatic</span> <span class="pre">Mixed</span> <span class="pre">Precision</span> <span class="pre">(AMP)</span></code> and <code class="docutils literal notranslate"><span class="pre">Weight</span> <span class="pre">Only</span> <span class="pre">Quantization</span></code>, to allow user to define a customized chatbot.</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Command line</span>
-neuralchat<span class="w"> </span>optimize<span class="w"> </span>--base_model<span class="w"> </span><span class="s2">&quot;meta-llama/Llama-2-7b-chat-hf&quot;</span><span class="w"> </span>--config<span class="w"> </span>pipeline/optimization/config/optimization.yaml
-</pre></div>
-</div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Python code</span>
-<span class="kn">from</span> <span class="nn">intel_extension_for_transformers.neural_chat</span> <span class="kn">import</span> <span class="n">build_chatbot</span><span class="p">,</span> <span class="n">MixedPrecisionConfig</span>
-<span class="n">pipeline_cfg</span> <span class="o">=</span> <span class="n">PipelineConfig</span><span class="p">(</span><span class="n">optimization_config</span><span class="o">=</span><span class="n">MixedPrecisionConfig</span><span class="p">())</span>
-<span class="n">chatbot</span> <span class="o">=</span> <span class="n">build_chatbot</span><span class="p">(</span><span class="n">pipeline_cfg</span><span class="p">)</span>
-</pre></div>
-</div>
+<p>Please refer to this <a class="reference external" href="./pipeline/plugins/retrieval/README.html">documentation</a> for more details.</p>
 </section>
 </section>
-<section id="validated-model-list">
-<h2>Validated Model List<a class="headerlink" href="#validated-model-list" title="Link to this heading"></a></h2>
-<p>The table below displays the validated model list in NeuralChat for both inference and fine-tuning.
-|Pretrained model| Text Generation (Instruction) | Text Generation (ChatBot) | Summarization | Code Generation |
-|————————————|—|—|— | — |
-|Intel/neural-chat-7b-v1-1| ✅| ✅| ✅| ✅
-|LLaMA series| ✅| ✅|✅| ✅
-|LLaMA2 series| ✅| ✅|✅| ✅
-|MPT series| ✅| ✅|✅| ✅
-|FLAN-T5 series| ✅ | <strong>WIP</strong>| <strong>WIP</strong> | <strong>WIP</strong>|</p>
-</section>
-<section id="selected-notebooks">
-<h2>Selected Notebooks<a class="headerlink" href="#selected-notebooks" title="Link to this heading"></a></h2>
-<p>Welcome to use Jupyter notebooks to explore how to create, deploy, and customize chatbots on multiple architectures, including Intel Xeon Scalable Processors, Intel Gaudi2, Intel Xeon CPU Max Series, Intel Data Center GPU Max Series, Intel Arc Series, and Intel Core Processors, and others. The selected notebooks are shown below:</p>
+<section id="customizing-the-neuralchat-service">
+<h2>Customizing the NeuralChat Service<a class="headerlink" href="#customizing-the-neuralchat-service" title="Link to this heading"></a></h2>
+<p>Users have the flexibility to customize the NeuralChat service by making modifications in the YAML configuration file. Detailed instructions can be found in the <a class="reference external" href="./server/README.html">documentation</a>.</p>
+<section id="supported-models">
+<h3>Supported Models<a class="headerlink" href="#supported-models" title="Link to this heading"></a></h3>
+<p>NeuralChat boasts support for various generative Transformer models available in <a class="reference external" href="https://huggingface.co/models">HuggingFace Transformers</a>. The following is a curated list of models validated for both inference and fine-tuning within NeuralChat:</p>
 <table border="1" class="docutils">
 <thead>
 <tr>
-<th>Notebook</th>
-<th>Title</th>
-<th>Description</th>
-<th>Link</th>
+<th>Pretrained model</th>
+<th style="text-align: center;">Text Generation (Completions)</th>
+<th style="text-align: center;">Text Generation (Chat Completions)</th>
+<th style="text-align: center;">Summarization</th>
+<th style="text-align: center;">Code Generation or SQL Generation</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>#1</td>
-<td>Getting Started on Intel CPU SPR</td>
-<td>Learn how to create chatbot on SPR</td>
-<td><a href="./docs/notebooks/build_chatbot_on_spr.ipynb">Notebook</a></td>
+<td>Intel/neural-chat-7b-v1-1</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
 </tr>
 <tr>
-<td>#2</td>
-<td>Getting Started on Habana Gaudi1/Gaudi2</td>
-<td>Learn how to create chatbot on Habana Gaudi1/Gaudi2</td>
-<td><a href="./docs/notebooks/build_chatbot_on_habana_gaudi.ipynb">Notebook</a></td>
+<td>Intel/neural-chat-7b-v3-1</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
 </tr>
 <tr>
-<td>#3</td>
-<td>Deploying Chatbot on Intel CPU SPR</td>
-<td>Learn how to deploy chatbot on SPR</td>
-<td><a href="./docs/notebooks/deploy_chatbot_on_spr.ipynb">Notebook</a></td>
+<td>meta-llama/Llama-2-7b-chat-hf</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
 </tr>
 <tr>
-<td>#4</td>
-<td>Deploying Chatbot on Habana Gaudi1/Gaudi2</td>
-<td>Learn how to deploy chatbot on Habana Gaudi1/Gaudi2</td>
-<td><a href="./docs/notebooks/deploy_chatbot_on_habana_gaudi.ipynb">Notebook</a></td>
+<td>meta-llama/Llama-2-70b-chat-hf</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
 </tr>
 <tr>
-<td>#5</td>
-<td>Deploying Chatbot with Load Balance</td>
-<td>Learn how to deploy chatbot with load balance on SPR</td>
-<td><a href="./docs/notebooks/chatbot_with_load_balance.ipynb">Notebook</a></td>
+<td>EleutherAI/gpt-j-6b</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>mosaicml/mpt-7b-chat</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>mistralai/Mistral-7B-v0.1</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>mistralai/Mixtral-8x7B-Instruct-v0.1</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>upstage/SOLAR-10.7B-Instruct-v1.0</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>THUDM/chatglm2-6b</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>THUDM/chatglm3-6b</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Qwen/Qwen-7B</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>microsoft/phi-2</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Deci/DeciLM-7B</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Deci/DeciLM-7B-instruct</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>bigcode/starcoder</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>codellama/CodeLlama-7b-hf</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>codellama/CodeLlama-34b-hf</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Phind/Phind-CodeLlama-34B-v2</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Salesforce/codegen2-7B</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>ise-uiuc/Magicoder-S-CL-7B</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>defog/sqlcoder2</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>defog/sqlcoder-34b-alpha</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
 </tr>
 </tbody>
-</table><p>🌟Please refer to <a class="reference external" href="docs/full_notebooks.html">HERE</a> for the full notebooks.</p>
+</table><p>Modify the <code class="docutils literal notranslate"><span class="pre">model_name_or_path</span></code> parameter in the YAML configuration file to load different models.</p>
+</section>
+<section id="rich-plugins">
+<h3>Rich Plugins<a class="headerlink" href="#rich-plugins" title="Link to this heading"></a></h3>
+<p>NeuralChat includes support for various plugins to enhance its capabilities:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="./pipeline/plugins/audio/README.html"><strong>Speech Processing</strong></a></p>
+<ul>
+<li><p>Text-to-Speech (TTS)</p></li>
+<li><p>Automatic Speech Recognition (ASR)</p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="./pipeline/plugins/retrieval/README.html"><strong>RAG (Retrieval-Augmented Generation)</strong></a></p></li>
+<li><p><a class="reference external" href="./pipeline/plugins/security/README.html"><strong>Safety Checker</strong></a></p></li>
+<li><p><a class="reference external" href="./pipeline/plugins/caching/README.html"><strong>Caching</strong></a></p></li>
+<li><p><a class="reference external" href="./pipeline/plugins/ner/README.html"><strong>Named Entity Recognition (NER)</strong></a></p></li>
+</ul>
+<p>Please be aware that additional libraries are required for various plugins. You can locate a ‘requirements.txt’ file in each plugin directory. Navigate to the plugin directory and execute ‘pip install -r requirements.txt’. For instance, to enable the RAG plugin, run the following commands:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>./pipeline/plugins/retrieval/
+pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+</pre></div>
+</div>
+</section>
+<section id="multimodal-apis">
+<h3>Multimodal APIs<a class="headerlink" href="#multimodal-apis" title="Link to this heading"></a></h3>
+<p>In addition to the text-based chat RESTful API, NeuralChat offers several helpful plugins in its RESTful API lineup to aid users in building multimodal applications. NeuralChat supports the following RESTful APIs:</p>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th>Tasks List</th>
+<th>RESTful APIs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>textchat</td>
+<td>/v1/chat/completions</td>
+</tr>
+<tr>
+<td></td>
+<td>/v1/completions</td>
+</tr>
+<tr>
+<td>voicechat</td>
+<td>/v1/audio/speech</td>
+</tr>
+<tr>
+<td></td>
+<td>/v1/audio/transcriptions</td>
+</tr>
+<tr>
+<td></td>
+<td>/v1/audio/translations</td>
+</tr>
+<tr>
+<td>retrieval</td>
+<td>/v1/rag/create</td>
+</tr>
+<tr>
+<td></td>
+<td>/v1/rag/append</td>
+</tr>
+<tr>
+<td></td>
+<td>/v1/rag/upload_link</td>
+</tr>
+<tr>
+<td></td>
+<td>/v1/rag/chat</td>
+</tr>
+<tr>
+<td>codegen</td>
+<td>/v1/code_generation</td>
+</tr>
+<tr>
+<td></td>
+<td>/v1/code_chat</td>
+</tr>
+<tr>
+<td>text2image</td>
+<td>/v1/text2image</td>
+</tr>
+<tr>
+<td>image2image</td>
+<td>/v1/image2image</td>
+</tr>
+<tr>
+<td>faceanimation</td>
+<td>/v1/face_animation</td>
+</tr>
+<tr>
+<td>finetune</td>
+<td>/v1/finetune</td>
+</tr>
+</tbody>
+</table><p>Modify the <code class="docutils literal notranslate"><span class="pre">tasks_list</span></code> parameter in the YAML configuration file to seamlessly leverage different RESTful APIs as per your project needs.</p>
+</section>
 </section>
 </section>
 
@@ -275,7 +597,7 @@ neuralchat<span class="w"> </span>optimize<span class="w"> </span>--base_model<s
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
     provided by <a href="https://readthedocs.org">Read the Docs</a>.
-   <jinja2.runtime.BlockReference object at 0x7f89edea9a20> 
+   <jinja2.runtime.BlockReference object at 0x7f22a9e41420> 
   <p></p><div><a href='https://www.intel.com/content/www/us/en/privacy/intel-cookie-notice.html' data-cookie-notice='true'>Cookies</a> <a href='https://www.intel.com/content/www/us/en/privacy/intel-privacy-notice.html'>| Privacy</a></div>
 
 

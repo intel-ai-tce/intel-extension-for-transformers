@@ -1,14 +1,16 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../../../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Introduction &mdash; Intel® Extension for Transformers 0.1.dev1+g9c6ea17 documentation</title>
-      <link rel="stylesheet" href="../../../../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../../../../_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="../../../../../../_static/graphviz.css" type="text/css" />
-      <link rel="stylesheet" href="../../../../../../_static/custom.css" type="text/css" />
+  <title>Introduction &mdash; Intel® Extension for Transformers 0.1.dev1+gef82cd3 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../../../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../../../../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../../../../_static/graphviz.css?v=fd3f3429" />
+      <link rel="stylesheet" type="text/css" href="../../../../../../_static/custom.css?v=68dfede1" />
+
+  
 <script type="text/javascript">
   // Configure TMS settings
   window.wapProfile = 'profile-microsite'; // This is mapped by WAP authorize value
@@ -89,7 +91,7 @@
   <p>This README is intended to guide you through setting up the server for the AskDoc demo using the NeuralChat framework. You can deploy it on various platforms, including Intel XEON Scalable Processors, Habana’s Gaudi processors (HPU), Intel Data Center GPU and Client GPU, Nvidia Data Center GPU and Client GPU.</p>
 <section id="introduction">
 <h1>Introduction<a class="headerlink" href="#introduction" title="Link to this heading"></a></h1>
-<p>The popularity of applications like ChatGPT has attracted many users seeking to address everyday problems. However, some users have encountered a challenge known as “model hallucination,” where LLMs generate incorrect or nonexistent information, raising concerns about content accuracy. This example introduce our solution to build a retrieval-based chatbot backend server. Though few lines of code, our api could help the user build a local refernece database to enhance the accuracy of the generation results.</p>
+<p>The popularity of applications like ChatGPT has attracted many users seeking to address everyday problems. However, some users have encountered a challenge known as “model hallucination,” where LLMs generate incorrect or nonexistent information, raising concerns about content accuracy. This example introduce our solution to build a retrieval-based chatbot backend server. Though few lines of code, our api could help the user build a local reference database to enhance the accuracy of the generation results.</p>
 <p>Before deploying this example, please follow the instructions in the <a class="reference external" href="../../README.html">README</a> to install the necessary dependencies.</p>
 </section>
 <section id="setup-environment">
@@ -127,7 +129,7 @@ conda<span class="w"> </span>install<span class="w"> </span>git-lfs<span class="
 <section id="download-models">
 <h2>Download Models<a class="headerlink" href="#download-models" title="Link to this heading"></a></h2>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git-lfs<span class="w"> </span>install
-git<span class="w"> </span>clone<span class="w"> </span>https://huggingface.co/meta-llama/Llama-2-7b-chat-hf
+git<span class="w"> </span>clone<span class="w"> </span>https://huggingface.co/Intel/neural-chat-7b-v3-1
 </pre></div>
 </div>
 </section>
@@ -153,7 +155,7 @@ git<span class="w"> </span>clone<span class="w"> </span>https://huggingface.co/m
 </tr>
 <tr>
 <td>model_name_or_path</td>
-<td>"./Llama-2-7b-chat-hf"</td>
+<td>"./neural-chat-7b-v3-1"</td>
 </tr>
 <tr>
 <td>device</td>
@@ -208,7 +210,7 @@ git<span class="w"> </span>clone<span class="w"> </span>https://huggingface.co/m
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
     provided by <a href="https://readthedocs.org">Read the Docs</a>.
-   <jinja2.runtime.BlockReference object at 0x7f89ee0fdb40> 
+   <jinja2.runtime.BlockReference object at 0x7f22a9c8d840> 
   <p></p><div><a href='https://www.intel.com/content/www/us/en/privacy/intel-cookie-notice.html' data-cookie-notice='true'>Cookies</a> <a href='https://www.intel.com/content/www/us/en/privacy/intel-privacy-notice.html'>| Privacy</a></div>
 
 

@@ -127,7 +127,7 @@ Functions
 
 
 
-   Roberta intermidiate.
+   Roberta intermediate.
 
    .. py:method:: forward(hidden_states: torch.Tensor) -> torch.Tensor
 
@@ -225,7 +225,6 @@ Functions
    `add_cross_attention` set to `True`; an `encoder_hidden_states` is then expected as an input to the forward pass.
 
    .. _*Attention is all you need*: https://arxiv.org/abs/1706.03762
-
 
    .. py:method:: get_input_embeddings()
 
@@ -479,7 +478,6 @@ Functions
 
    Position numbers begin at padding_idx+1. Padding symbols are ignored.
    This is modified from fairseq's `utils.make_positions`.
-
 
 
 .. py:function:: expand_gather(input, dim, index)

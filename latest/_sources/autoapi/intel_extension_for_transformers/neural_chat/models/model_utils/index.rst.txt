@@ -21,6 +21,7 @@ Functions
    intel_extension_for_transformers.neural_chat.models.model_utils.model_on_meta
    intel_extension_for_transformers.neural_chat.models.model_utils.model_is_optimized
    intel_extension_for_transformers.neural_chat.models.model_utils.load_model
+   intel_extension_for_transformers.neural_chat.models.model_utils.get_context_length
    intel_extension_for_transformers.neural_chat.models.model_utils.predict_stream
    intel_extension_for_transformers.neural_chat.models.model_utils.predict
 
@@ -52,7 +53,7 @@ Functions
    new input token_idx.
 
 
-.. py:function:: load_model(model_name, tokenizer_name, device='cpu', use_hpu_graphs=False, cpu_jit=False, ipex_int8=False, use_cache=True, peft_path=None, use_deepspeed=False, optimization_config=None, hf_access_token=None, use_llm_runtime=False)
+.. py:function:: load_model(model_name, tokenizer_name, device='cpu', use_hpu_graphs=False, cpu_jit=False, ipex_int8=False, use_cache=True, peft_path=None, use_deepspeed=False, use_tpp=False, optimization_config=None, hf_access_token=None, use_neural_speed=False, assistant_model=None, use_vllm=False, vllm_engine_params=None, gguf_model_path=None)
 
    Load the model and initialize the tokenizer.
 
@@ -62,10 +63,17 @@ Functions
    :type device: str, optional
    :param use_hpu_graphs: Whether to use HPU graphs. Defaults to False. Only set when device is hpu.
    :type use_hpu_graphs: bool, optional
+   :param assistant_model: The assistant model name. Defaults to None.
+   :type assistant_model: str, optional
 
    :returns: None
 
-   :raises ValueError: If the model is not supported, ValueError is raised.
+   :raises ValueError:
+
+
+.. py:function:: get_context_length(config)
+
+   Get the context length of a model from a huggingface model config.
 
 
 .. py:function:: predict_stream(**params)
@@ -99,7 +107,7 @@ Functions
                        Higher values increase the diversity but also the computation time.
    :type `num_beams`: int
    :param `model_name`: Specifies the name of the pre-trained model to use for text generation.
-                        If not provided, the default model is "mosaicml/mpt-7b-chat".
+                        If not provided, the default model is "Intel/neural-chat-7b-v3-1".
    :type `model_name`: string
    :param `num_return_sequences`: Specifies the number of alternative sequences to generate.
    :type `num_return_sequences`: int
@@ -113,6 +121,8 @@ Functions
    :type `use_cache`: bool
    :param `ipex_int8`: Whether to use IPEX int8 model to inference.
    :type `ipex_int8`: bool
+   :param `format_version`: the format version of return stats.
+   :type `format_version`: string
 
    :returns: A generator that yields the generated streaming text.
    :rtype: generator

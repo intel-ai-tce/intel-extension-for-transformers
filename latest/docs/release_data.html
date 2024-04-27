@@ -1,14 +1,16 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Validated Model Performance &mdash; Intel® Extension for Transformers 0.1.dev1+g9c6ea17 documentation</title>
-      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  <title>Validated Model Performance &mdash; Intel® Extension for Transformers 0.1.dev1+gef82cd3 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=fd3f3429" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=68dfede1" />
+
+  
 <script type="text/javascript">
   // Configure TMS settings
   window.wapProfile = 'profile-microsite'; // This is mapped by WAP authorize value
@@ -107,7 +109,7 @@
 <li><p><a class="reference external" href="#llm-finetuning">LLM Finetuning</a></p></li>
 </ol>
 <p>System summary: Test by Intel on 09/19/2023. 1-node, 1x Intel(R) Xeon(R) Platinum 8480+ &#64;3.8GHz, 56 cores/socket, HT On, Turbo On, Total Memory 256GB (16x16GB DDR5 4800 MT/s [4800 MT/s]), BIOS 3A14.TEL2P1, microcode 0x2b0001b0,
-CentOS Stream 8, gcc (GCC) 8.5.0 20210514 (Red Hat 8.5.0-10), DL Models, Frameworks/Backends: PyTorch/ONNXRT/<a class="reference external" href="../intel_extension_for_transformers/llm/runtime/">LLM Runtime</a>/GGML, Datatype: FP32/INT8/BF16/FP8.
+CentOS Stream 8, gcc (GCC) 8.5.0 20210514 (Red Hat 8.5.0-10), DL Models, Frameworks/Backends: PyTorch/ONNXRT/<a class="reference external" href="../intel_extension_for_transformers/transformers/runtime/">LLM Runtime</a>/GGML, Datatype: FP32/INT8/BF16/FP8.
 Using 1 socket, 56 cores/instance, 1 instance and batch size 1</p>
 <p>Performance varies by use, configuration and other factors.
 For more complete information about performance and benchmark results, visit <a class="reference external" href="https://edc.intel.com/content/www/us/en/products/performance/benchmarks/overview/">www.intel.com/benchmarks</a></p>
@@ -522,7 +524,8 @@ For more complete information about performance and benchmark results, visit <a 
 <section id="llm-runtime-ggml-compatible">
 <h2>LLM Runtime (GGML-Compatible)<a class="headerlink" href="#llm-runtime-ggml-compatible" title="Link to this heading"></a></h2>
 <p>Environment:
-GCC / G++:  12.1.0</p>
+GCC / G++:  12.1.0
+Transformers version: 4.35.2</p>
 <section id="mpt-7b">
 <h3>MPT-7B<a class="headerlink" href="#mpt-7b" title="Link to this heading"></a></h3>
 <table border="1" class="docutils">
@@ -2787,7 +2790,10 @@ GCC / G++:  12.1.0</p>
 <td>1.00E-04</td>
 </tr>
 </tbody>
-</table></section>
+</table><p>Intel Gaudi2 Environments:</p>
+<p>Driver version 1.13.0-ee32e42, synapse AI v1.13.0</p>
+<p>We will release data soon.</p>
+</section>
 </section>
 
 
@@ -2804,7 +2810,7 @@ GCC / G++:  12.1.0</p>
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
     provided by <a href="https://readthedocs.org">Read the Docs</a>.
-   <jinja2.runtime.BlockReference object at 0x7f89ee2aaaa0> 
+   <jinja2.runtime.BlockReference object at 0x7f22a9d5d510> 
   <p></p><div><a href='https://www.intel.com/content/www/us/en/privacy/intel-cookie-notice.html' data-cookie-notice='true'>Cookies</a> <a href='https://www.intel.com/content/www/us/en/privacy/intel-privacy-notice.html'>| Privacy</a></div>
 
 
